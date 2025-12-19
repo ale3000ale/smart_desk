@@ -1,0 +1,16 @@
+# Ambiente virtuale
+env/
+
+# Python
+window/__pycache__/
+
+# IDE
+.vscode/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Variabili d'ambiente
+.env
+.env.local
