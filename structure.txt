@@ -1,0 +1,9 @@
+Project Structure (Ignored from .gitignore)
+===========================================
+
+smart_desk/
+├── requirements.txt
+├── main.py
+├── window/
+│   ├── window.py
+├── hand traker/
