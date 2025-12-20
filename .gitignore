@@ -2,7 +2,7 @@
 env/
 
 # Python
-window/__pycache__/
+__pycache__/
 
 # IDE
 .vscode/

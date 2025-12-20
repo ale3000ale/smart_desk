@@ -1,5 +1,5 @@
 
-import cv2
+from pkg import *
 
 class Camera:
 	def __init__(self):
