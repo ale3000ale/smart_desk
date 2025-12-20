@@ -1,11 +1,12 @@
 import cv2
 
 class Window:
-	def __init__(self, title="Window", width=640, height=480):
+	def __init__(self, title="Window", width=1080, height=720):
 		self.title = title
 		self.width = width
 		self.height = height
 		self._create_window()
+
 
 	def _create_window(self):
 		cv2.namedWindow(self.title)
