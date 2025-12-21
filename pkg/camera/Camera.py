@@ -1,9 +1,10 @@
 
-from pkg import *
+import pkg.config as const 
+from pkg import cv2
 
 class Camera:
 	def __init__(self):
-		self.index = 0
+		self.index = const.CAMERA_DEFAULT_INDEX
 		self.cap = cv2.VideoCapture(self.index)
 		if not self.cap.isOpened():
 			raise RuntimeError(f"Non è possibile aprire la videocamera {self.index}")

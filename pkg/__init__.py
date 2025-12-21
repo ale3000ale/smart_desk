@@ -11,12 +11,16 @@ import cv2
 import threading
 import sys
 import os
+import numpy as np
+import mediapipe as mp
 
 
 # ============= LIBRERIE INTERNE =============
 from .camera.Camera import Camera
 from .window.Window import Window
-from .core import core
+from .core import core 
+from .core import Gui
+from .core import HandTracker
 
 # ============= CONFIGURAZIONI =============
 from . import config
@@ -32,7 +36,7 @@ __all__ = [
     # Config
     'config',
 	# Classi
-	'Camera', 'Window',
+	'Camera', 'Window','Gui',
 	# Funzioni
 	'core'
 ]

@@ -4,25 +4,53 @@
 	|-->Elaboratore elabora gli eventi ed i dati provenienti da ML e dice alla GUI cosa mostrare
 			|-->GUI si occupa solo del rendering 
 """
-from pkg import * 
+
+from pkg import *
+from pkg.core.Gui import Gui
+from pkg.core.HandTracker import HandTracker
 
 def core():
 	wd = Window("Camera Viewer")
 	camera = Camera()
-	
+	#start ML
+	tracker = HandTracker()
+	#start elaboratore
+	#start GUI
+	gui = Gui(width=1280, height=720)    
+
+	timestamp_ms = 0  
 	while True:
+
+		#RENDER  GUI
 		ret, frame = camera.read() 
-		if ret:
-			wd.show_frame(frame)
-		else:
+		if not ret:
 			print("Errore nella lettura del frame")
 			break
-		
-		""" Controlla per uscire o cambiare camera """
-		if cv2.waitKey(1) & 0xFF == ord('q'):
-				break
-		if cv2.waitKey(1) & 0xFF == ord('c'):
-				camera.change_camera()
+		frame_tracked, hand_pos, is_real_press = tracker.process(
+            frame, timestamp_ms=timestamp_ms
+        )
+		timestamp_ms += 33  # ~30 FPS
+
+		#if is_real_press and hand_pos is not None:
+		#	print("Press reale:", hand_pos)
+
+		#  Rendering GUI sopra il frame tracciato
+		gui_frame = gui.render(frame_tracked)
+
+		#  Mostra SOLO questo frame finale
+		wd.show_frame(gui_frame)
+
+		# Listener pulsante GUI
+		if gui.consume_button_press():
+			print("Pulsante GUI premuto!")
+
+		# Tasti controllo
+		key = cv2.waitKey(1) & 0xFF
+		if key == ord('q'):
+			break
+		if key == ord('c'):
+			camera.change_camera()
+
 		
 	
 	camera.release()

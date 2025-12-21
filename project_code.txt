@@ -1,0 +1,302 @@
+
+================================================================================
+FILE: main.py
+================================================================================
+
+from pkg import core
+
+if __name__ == "__main__":
+	core.core()
+	
+
+--------------------------------------------------------------------------------
+
+
+================================================================================
+FILE: pkg\__init__.py
+================================================================================
+
+"""
+pkg - Pacchetto principale di Smart Desk
+
+Esporta:
+- Camera: Gestione videocamera
+- Window: Gestione finestra
+- config: Configurazioni globali
+"""
+# ============= LIBRERIE ESTERNE =============
+import cv2 
+import threading
+import sys
+import os
+
+
+# ============= LIBRERIE INTERNE =============
+from .camera.Camera import Camera
+from .window.Window import Window
+from .core import core 
+
+# ============= CONFIGURAZIONI =============
+from . import config
+
+
+
+
+# ============= ESPORTAZIONI =============
+# Esporta tutto quello che serve agli altri moduli
+__all__ = [
+    # Librerie
+    'cv2', 'threading', 'sys', 'os',
+    # Config
+    'config',
+	# Classi
+	'Camera', 'Window',
+	# Funzioni
+	'core'
+]
+
+__version__ = '1.0.0'
+
+
+
+
+
+
+--------------------------------------------------------------------------------
+
+
+================================================================================
+FILE: pkg\camera\Camera.py
+================================================================================
+
+
+from pkg import *
+
+class Camera:
+	def __init__(self):
+		self.index = CAMERA_DEFAULT_INDEX
+		self.cap = cv2.VideoCapture(self.index)
+		if not self.cap.isOpened():
+			raise RuntimeError(f"Non è possibile aprire la videocamera {self.index}")
+		""" Ottieni dimensioni iniziali attenzione get restituisce float va convertito a int"""
+		self.width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+		self.height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+	def get_dimensions(self):
+		return self.width, self.height
+	
+	"""Legge un frame dalla videocamera"""
+	def read(self):							
+		ret, frame = self.cap.read()
+		# ret booleano che indica se la lettura è avvenuta con successo
+		# frame è il frame catturato
+		return ret, frame			
+
+	"""Rilascia la videocamera  """
+	def release(self):								 
+		self.cap.release()
+
+
+
+	"""	Ritorna una lista di dizionari con informazioni sulle videocamere disponibili"""
+	def scout_cameras(self):						
+		cameras_info = []
+				
+		# Disabilita i log durante la ricerca
+		old_log_level = cv2.getLogLevel()
+	
+		cv2.setLogLevel(0)
+
+		for index in range(10):  # Verifica i primi 10 indici
+			cap = cv2.VideoCapture(index)
+			
+			if cap.isOpened():
+				width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+				height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+				fps = cap.get(cv2.CAP_PROP_FPS)
+				
+				camera_data = {
+					'index': index,
+					'width': width,
+					'height': height,
+					'fps': fps
+				}
+				
+				cameras_info.append(camera_data)
+				cap.release()
+			else:
+				cap.release()
+		# Ripristina il livello di log
+		cv2.setLogLevel(old_log_level)
+		return cameras_info
+	
+	def change_camera(self):
+		"""Ritorna informazioni dettagliate su tutte le videocamere disponibili"""
+		cameras = self.scout_cameras()
+		for cam_info in cameras:
+			print(f"Camera {cam_info['index']}: {cam_info['width']}x{cam_info['height']} @ {cam_info['fps']} FPS")
+		choice = input("\nScegli la videocamera da usare: ")
+
+		while choice.isdigit() is False or int(choice) < 0 or int(choice) >= len(cameras):
+			choice = input("Scelta non valida. Scegli la videocamera da usare: ")
+
+		self.release()
+		self.index = int(choice)
+		self.cap = cv2.VideoCapture(self.index)
+		if self.cap.isOpened():
+			self.width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+			self.height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+		else:
+			self.index = 0
+			self.release()
+			self.cap = cv2.VideoCapture(self.index)
+			print("Impossibile aprire la videocamera scelta. Ritrono alla videocamera predefinita (0).")
+
+
+	def __del__(self):
+		self.release()
+
+--------------------------------------------------------------------------------
+
+
+================================================================================
+FILE: pkg\config.py
+================================================================================
+
+
+"""
+config.py - Configurazioni e costanti globali
+"""
+
+import os
+
+# ============= COSTANTI VIDEOCAMERA =============
+CAMERA_DEFAULT_INDEX = 0
+CAMERA_DEFAULT_WIDTH = 1080
+CAMERA_DEFAULT_HEIGHT = 720
+CAMERA_USE_THREADING = True
+CAMERA_DEFAULT_FPS = 30
+
+# ============= COSTANTI FINESTRA =============
+WINDOW_DEFAULT_NAME = "Smart Desk"
+WINDOW_DEFAULT_WIDTH = 1280
+WINDOW_DEFAULT_HEIGHT = 720
+
+# ============= COSTANTI CONTROLLO =============
+KEY_QUIT = 'q'              # Tasto per uscire
+KEY_CHANGE_CAMERA = 'c'     # Tasto per cambiare videocamera
+
+# ============= PERCORSI =============
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PKG_PATH = os.path.join(PROJECT_ROOT, 'pkg')
+CORE_PATH = os.path.join(PROJECT_ROOT, 'core')
+
+# ============= ESPORTAZIONI =============
+__all__ = [
+    'CAMERA_DEFAULT_INDEX',  'CAMERA_DEFAULT_WIDTH', 'CAMERA_DEFAULT_HEIGHT',
+    'CAMERA_USE_THREADING', 'CAMERA_DEFAULT_FPS', 'WINDOW_DEFAULT_NAME',
+    'WINDOW_DEFAULT_WIDTH', 'WINDOW_DEFAULT_HEIGHT', 'KEY_QUIT', 'KEY_CHANGE_CAMERA',
+    'PROJECT_ROOT', 'PKG_PATH', 'CORE_PATH'
+]
+
+
+--------------------------------------------------------------------------------
+
+
+================================================================================
+FILE: pkg\core\Gui.py
+================================================================================
+
+
+
+--------------------------------------------------------------------------------
+
+
+================================================================================
+FILE: pkg\core\core.py
+================================================================================
+
+"""
+	Core crea e gestisce ML , elaboratore, GUI 
+	ML crea eventi in base a ció che la camera vede
+	|-->Elaboratore elabora gli eventi ed i dati provenienti da ML e dice alla GUI cosa mostrare
+			|-->GUI si occupa solo del rendering 
+"""
+from pkg import * 
+
+def core():
+	wd = Window("Camera Viewer")
+	camera = Camera()
+	#start ML
+	#start elaboratore
+	#start GUI
+	while True:
+		
+		#RENDER  GUI
+		ret, frame = camera.read() 
+		if ret:
+			wd.show_frame(frame)
+		else:
+			print("Errore nella lettura del frame")
+			break
+		
+		""" Controlla per uscire o cambiare camera """
+		if cv2.waitKey(1) & 0xFF == ord('q'):
+				break
+		if cv2.waitKey(1) & 0xFF == ord('c'):
+				camera.change_camera()
+		
+	
+	camera.release()
+	cv2.destroyAllWindows()
+
+--------------------------------------------------------------------------------
+
+
+================================================================================
+FILE: pkg\core\events.py
+================================================================================
+
+
+
+--------------------------------------------------------------------------------
+
+
+================================================================================
+FILE: pkg\core\handTraker.py
+================================================================================
+
+
+
+--------------------------------------------------------------------------------
+
+
+================================================================================
+FILE: pkg\window\Window.py
+================================================================================
+
+import cv2
+
+class Window:
+	def __init__(self, title="Window", width=1080, height=720):
+		self.title = title
+		self.width = width
+		self.height = height
+		self._create_window()
+
+
+	def _create_window(self):
+		cv2.namedWindow(self.title)
+		cv2.resizeWindow(self.title, self.width, self.height)
+
+	def show_frame(self, frame):
+		cv2.imshow(self.title, frame)
+
+	def wait_key(self, delay=1):
+		return cv2.waitKey(delay)
+
+	def destroy(self):
+		cv2.destroyWindow(self.title)
+
+--------------------------------------------------------------------------------
+
