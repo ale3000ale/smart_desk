@@ -1,6 +1,6 @@
 
 import pkg.config as const 
-from pkg import cv2
+from pkg.ext_import import cv2
 
 class Camera:
 	def __init__(self):

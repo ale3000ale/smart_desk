@@ -1,5 +1,5 @@
 # pkg/core/handTraker.py
-from pkg import mp, cv2, np
+from pkg.ext_import import mp, cv2, np
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 from collections import deque
@@ -96,11 +96,38 @@ class HandTracker:
                 color = (0, 255, 0) if is_real_press else (0, 0, 255)
                 cv2.putText(frame, text, (10, 40),
                             cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
-        else:
-            print("Nessuna mano rilevata")
+
         self.last_hand_pos = hand_pos
         self.last_is_real_press = is_real_press
         return frame, hand_pos, is_real_press
     
-    def calibration(self):
-        pass
+    def calibrate(self, frame, timestamp_ms=0, draw=True):
+        
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame)
+        
+        result = self.detector.detect_for_video(mp_image, timestamp_ms)
+
+        if result.hand_landmarks:
+            lms = result.hand_landmarks[0]
+
+            wrist = lms[0]
+            mcp_index = lms[5]
+            pip_index = lms[6]
+            dip_index = lms[7]
+            tip_index = lms[8]
+            mcp_middle = lms[9]
+            mcp_ring = lms[13]
+            mcp_pinky = lms[17]
+
+            palm_z = (
+                wrist.z + mcp_index.z + mcp_middle.z + 
+                mcp_ring.z + mcp_pinky.z + pip_index.z +
+                dip_index.z + tip_index.z
+            ) / 8.0
+            
+            
+            self.hover_z_ref.append(palm_z)
+        else:
+            print("Impossibile calibrare")
+            return False
+        return True

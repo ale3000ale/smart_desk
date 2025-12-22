@@ -1,7 +1,9 @@
 from pkg import *
-from pkg import config as const
+from pkg.ext_import import cv2, np
+
+
 class Gui:
-    def __init__(self, width=const.WINDOW_DEFAULT_WIDTH, height=const.WINDOW_DEFAULT_WIDTH,
+    def __init__(self, width=config.WINDOW_DEFAULT_WIDTH, height=config.WINDOW_DEFAULT_WIDTH,
                  btn_x=50, btn_y=50, btn_w=200, btn_h=80,
                  btn_text="CLICK ME"):
         self.width = width

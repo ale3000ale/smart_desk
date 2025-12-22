@@ -8,6 +8,8 @@
 from pkg import *
 from pkg.core.Gui import Gui
 from pkg.core.HandTracker import HandTracker
+from pkg.ext_import import cv2
+
 
 def core():
 	wd = Window("Camera Viewer")
@@ -19,6 +21,8 @@ def core():
 	gui = Gui(width=1280, height=720)    
 
 	timestamp_ms = 0  
+	hand_calibration_i = 0
+	calibrate = False
 	while True:
 
 		#RENDER  GUI
@@ -26,7 +30,18 @@ def core():
 		if not ret:
 			print("Errore nella lettura del frame")
 			break
-		frame_tracked, hand_pos, is_real_press = tracker.process(
+		if calibrate:
+			if not tracker.calibrate(frame,timestamp_ms=timestamp_ms):
+				hand_calibration_i = 0
+				calibrate = False
+			if hand_calibration_i < 30:
+				hand_calibration_i += 1
+			else:
+				calibrate = False
+				hand_calibration_i = 0
+				print("Calibrazione completata")
+		else:
+			frame_tracked, hand_pos, is_real_press = tracker.process(
             frame, timestamp_ms=timestamp_ms
         )
 		timestamp_ms += 33  # ~30 FPS
@@ -46,10 +61,12 @@ def core():
 
 		# Tasti controllo
 		key = cv2.waitKey(1) & 0xFF
-		if key == ord('q'):
+		if key == ord(config.KEY_QUIT):
 			break
-		if key == ord('c'):
+		if key == ord(config.KEY_CHANGE_CAMERA):
 			camera.change_camera()
+		if key == ord(config.KEY_CALIBRATION):
+			calibrate = True
 
 		
 	

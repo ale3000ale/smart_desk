@@ -6,13 +6,6 @@ Esporta:
 - Window: Gestione finestra
 - config: Configurazioni globali
 """
-# ============= LIBRERIE ESTERNE =============
-import cv2 
-import threading
-import sys
-import os
-import numpy as np
-import mediapipe as mp
 
 
 # ============= LIBRERIE INTERNE =============
@@ -22,8 +15,7 @@ from .core import core
 from .core import Gui
 from .core import HandTracker
 
-# ============= CONFIGURAZIONI =============
-from . import config
+
 
 
 
@@ -31,8 +23,7 @@ from . import config
 # ============= ESPORTAZIONI =============
 # Esporta tutto quello che serve agli altri moduli
 __all__ = [
-    # Librerie
-    'cv2', 'threading', 'sys', 'os',
+
     # Config
     'config',
 	# Classi

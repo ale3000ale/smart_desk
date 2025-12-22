@@ -20,6 +20,7 @@ WINDOW_DEFAULT_HEIGHT = 720
 # ============= COSTANTI CONTROLLO =============
 KEY_QUIT = 'q'              # Tasto per uscire
 KEY_CHANGE_CAMERA = 'c'     # Tasto per cambiare videocamera
+KEY_CALIBRATION = 'r'       # Tasto per calibrare
 
 # ============= PERCORSI =============
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -31,5 +32,6 @@ __all__ = [
     'CAMERA_DEFAULT_INDEX',  'CAMERA_DEFAULT_WIDTH', 'CAMERA_DEFAULT_HEIGHT',
     'CAMERA_USE_THREADING', 'CAMERA_DEFAULT_FPS', 'WINDOW_DEFAULT_NAME',
     'WINDOW_DEFAULT_WIDTH', 'WINDOW_DEFAULT_HEIGHT', 'KEY_QUIT', 'KEY_CHANGE_CAMERA',
+	'KEY_CALIBRATION',
     'PROJECT_ROOT', 'PKG_PATH', 'CORE_PATH'
 ]
