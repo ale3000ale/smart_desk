@@ -1,10 +1,5 @@
 # SANDY - Smart Adaptive and Navigable Desk YEAH!
 
-[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/)
-[![OpenCV](https://img.shields.io/badge/OpenCV-4.10-blue.svg)](https://opencv.org/)
-[![MediaPipe](https://img.shields.io/badge/MediaPipe-0.10-blue.svg)](https://mediapipe.dev/)
-
 ## L'idea
 Il progetto nasce dalla mia necessità di farmi un top per la scrivania personalizzato. Mentre cercavo idee su internet mi imbatto in questo video: [https://youtu.be/U_wsZq89RlM?si=8_blLj5m1tyASBZ0](https://youtu.be/U_wsZq89RlM?si=8_blLj5m1tyASBZ0)
 
@@ -32,7 +27,8 @@ Questa sezione verrà aggiornata passo passo ma per ora:
 
 1) Creare una struttura del progetto  
 2) Tracciare le mani  
-**Sono Qua ->** 3) Capire quando clicco o meno sulla scrivania  
+**Sono Qua** 
+3) Capire quando clicco o meno sulla scrivania  
 4) Calibrare il piano  
 5) Oscurare la mano (questo punto serve per far sì che quando la mano sta nella zona proiettata non gli vengano proiettate sopra le cose)  
 6) Interazioni semplici su pulsanti  
