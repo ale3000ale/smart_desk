@@ -15,7 +15,6 @@ def parse_gitignore(gitignore_path):
                 # Rimuovi slash iniziali/finali per match più generico
                 clean_pattern = line.strip('/')
                 ignore_patterns.add(clean_pattern)
-    
     return list(ignore_patterns)
 
 def should_ignore(name, patterns):
