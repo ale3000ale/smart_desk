@@ -1,5 +1,5 @@
 from pkg import *
-from pkg.ext_import import cv2, np
+import numpy as np, cv2
 
 
 class Gui:

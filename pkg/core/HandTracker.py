@@ -1,5 +1,6 @@
 # pkg/core/handTraker.py
-from pkg.ext_import import mp, cv2, np
+import numpy as np, cv2, mediapipe as mp
+from pkg.config import *
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 from collections import deque
@@ -9,15 +10,15 @@ class HandTracker:
     def __init__(self,
                  model_path="hand_landmarker.task",
                  num_hands=1,
-                 real_press_threshold=0.014):
+                 real_press_threshold=PRESS_TRESHOLD):
         base_options = python.BaseOptions(model_asset_path=model_path)
         options = vision.HandLandmarkerOptions(
             base_options=base_options,
             running_mode=vision.RunningMode.VIDEO,  
             num_hands=num_hands ,
-            min_hand_detection_confidence=0.2,
-            min_hand_presence_confidence=0.2,
-            min_tracking_confidence=0.2,
+            min_hand_detection_confidence= MIN_HAND_DETECTION_CONFIDENCE,
+            min_hand_presence_confidence=MIN_HAND_PRESENCE_CONFIDENCE,
+            min_tracking_confidence=MIN_TRACKING_CONFIDENCE,
         )
         self.detector = vision.HandLandmarker.create_from_options(options)
 

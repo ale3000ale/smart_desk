@@ -11,8 +11,8 @@ import cv2
 import threading
 import sys
 import os
-import numpy as np
-import mediapipe as mp
+import numpy 
+import mediapipe 
 
 
 
@@ -21,7 +21,7 @@ import mediapipe as mp
 # Esporta tutto quello che serve agli altri moduli
 __all__ = [
     # Librerie
-    'cv2', 'threading', 'sys', 'os'
+    'cv2', 'threading', 'sys', 'os','mediapipe', 'numpy',
 
 ]
 
