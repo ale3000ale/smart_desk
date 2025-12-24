@@ -21,8 +21,6 @@ def core():
 	gui = Gui(width=1280, height=720)    
 
 	timestamp_ms = 0  
-	hand_calibration_i = 0
-	calibrate = False
 	while True:
 
 		#RENDER  GUI
@@ -30,20 +28,10 @@ def core():
 		if not ret:
 			print("Errore nella lettura del frame")
 			break
-		if calibrate:
-			if not tracker.calibrate(frame,timestamp_ms=timestamp_ms):
-				hand_calibration_i = 0
-				calibrate = False
-			if hand_calibration_i < 30:
-				hand_calibration_i += 1
-			else:
-				calibrate = False
-				hand_calibration_i = 0
-				print("Calibrazione completata")
-		else:
-			frame_tracked, hand_pos, is_real_press = tracker.process(
-            frame, timestamp_ms=timestamp_ms
-        )
+		
+		
+		frame_tracked, hand_pos, is_real_press = tracker.process(
+								frame, timestamp_ms=timestamp_ms)
 		timestamp_ms += 33  # ~30 FPS
 
 		#if is_real_press and hand_pos is not None:
@@ -66,7 +54,10 @@ def core():
 		if key == ord(config.KEY_CHANGE_CAMERA):
 			camera.change_camera()
 		if key == ord(config.KEY_CALIBRATION):
-			calibrate = True
+			tracker.calibrate_touch_plane(frame, timestamp_ms=timestamp_ms)
+			timestamp_ms += 33
+		if key == ord(config.KEY_RESET):
+			tracker.reset()
 
 		
 	
