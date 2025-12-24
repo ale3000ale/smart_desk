@@ -6,6 +6,8 @@ from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 from collections import deque
 
+def callback():
+    print("Hand Tracker callback")
 
 class HandTracker:
     def __init__(self,
@@ -17,11 +19,12 @@ class HandTracker:
         # crea le opzioni per il rilevatore di mani
         options = vision.HandLandmarkerOptions(
             base_options=base_options,
-            running_mode=vision.RunningMode.VIDEO,  
+            running_mode=vision.RunningMode.LIVE_STREAM,  
             num_hands=num_hands ,
             min_hand_detection_confidence= MIN_HAND_DETECTION_CONFIDENCE,
             min_hand_presence_confidence=MIN_HAND_PRESENCE_CONFIDENCE,
             min_tracking_confidence=MIN_TRACKING_CONFIDENCE,
+            result_callback = callback
         )
         self.detector = vision.HandLandmarker.create_from_options(options)
 
@@ -37,7 +40,7 @@ class HandTracker:
 
     def get_hand(self,frame,timestamp_ms=0):
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame)
-        return self.detector.detect_for_video(mp_image, timestamp_ms)
+        return self.detector.detect_async(mp_image, timestamp_ms)
     
 
     def process(self, frame, timestamp_ms=0, draw=True):
