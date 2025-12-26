@@ -2,16 +2,17 @@ Project Structure (Ignored from .gitignore)
 ===========================================
 
 smart_desk/
+├── Demo3,5.mp4
 ├── hand_landmarker.task
 ├── main.py
-├── project_code.txt
-├── README
+├── README.md
 ├── requirements.txt
 ├── setup.bat
 ├── setup.sh
 ├── toTXT.py
 ├── pkg/
 │   ├── config.py
+│   ├── ext_import.py
 │   ├── __init__.py
 │   ├── camera/
 │   │   ├── Camera.py
