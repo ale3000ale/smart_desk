@@ -31,9 +31,9 @@ Questa sezione verrà aggiornata passo passo ma per ora:
 
 1. Creare una struttura del progetto
 2. Tracciare le mani  
-   **Sono Qua**
 3. Capire quando clicco o meno sulla scrivania
 4. Calibrare il piano
+   **Sono Qua**
 5. Oscurare la mano (questo punto serve per far sì che quando la mano sta nella zona proiettata non gli vengano proiettate sopra le cose)
 6. Interazioni semplici su pulsanti  
    **------ Fine Base -------**
