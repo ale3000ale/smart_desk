@@ -26,6 +26,11 @@ class Camera:
 	def release(self):								 
 		self.cap.release()
 
+	def set_dimensions(self, width, height):
+		self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+		self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+		self.width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+		self.height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
 
 	"""	Ritorna una lista di dizionari con informazioni sulle videocamere disponibili"""

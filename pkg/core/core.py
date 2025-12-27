@@ -6,6 +6,7 @@
 """
 
 from pkg import *
+from pkg.config import *
 from pkg.core.Gui import Gui
 from pkg.core.HandTracker import HandTracker
 from pkg.ext_import import cv2
@@ -14,11 +15,14 @@ from pkg.ext_import import cv2
 def core():
 	wd = Window("Camera Viewer")
 	camera = Camera()
+	# SOLO PER QUANDO USO WINDOWS
+	camera.set_dimensions(CAMERA_DEFAULT_WIDTH, CAMERA_DEFAULT_HEIGHT)
+
 	#start ML
 	tracker = HandTracker()
 	#start elaboratore
 	#start GUI
-	gui = Gui(width=1280, height=720)    
+	gui = Gui(width=WINDOW_DEFAULT_WIDTH, height=WINDOW_DEFAULT_HEIGHT)    
 
 	timestamp_ms = 0  
 	while True:
