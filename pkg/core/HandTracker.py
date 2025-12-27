@@ -34,12 +34,12 @@ class HandTracker:
 
         # dati per la calibrazione del piano
         self.calibration_data = deque(maxlen=CALIBRATION_POINTS)    # punti di calibrazione
-        self.touch_plane_A = [4]                      # coefficiente a,b,c,d del piano A ax+by+cz+d=0 
-        self.touch_plane_B = [4]                      # coefficiente a,b,c,d del piano B ax+by+cz+d=0
+        self.touch_plane  = None       
+        self.calibration_rmse = None # matrice di qualitá               
 
     def callback(self , result: vision.HandLandmarkerResult, output_image: mp.Image, timestamp_ms: int):
         self.landmarks = result
-        
+       
 
     def get_hand(self,frame,timestamp_ms=0):
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame)
@@ -72,22 +72,18 @@ class HandTracker:
             hand_pos = (x_px, y_px)
 
             # Calcola la posizione della mano rispetto al piano di tocco
-            if self.touch_plane_A.__len__() == 4 and self.touch_plane_B.__len__() == 4:
-                point = np.array([tip_index.x, tip_index.y, tip_index.z])   
-                p_res_A = point[0]*self.touch_plane_A[0] + \
-                        point[1]*self.touch_plane_A[1] + \
-                        point[2]*self.touch_plane_A[2] + \
-                        self.touch_plane_A[3]
-                p_res_B = point[0]*self.touch_plane_B[0] + \
-                        point[1]*self.touch_plane_B[1] + \
-                        point[2]*self.touch_plane_B[2] + \
-                        self.touch_plane_B[3]
-
-                if p_res_A >= 0 and p_res_B >= 0:
-                    is_real_press = False          # lato del verso della normale
+            if self.touch_plane is not None:
+                point = np.array([tip_index.x, tip_index.y, tip_index.z])
+                
+                # Distanza con segno (normalizzata)
+                distance = np.dot(point, self.touch_plane[:3]) + self.touch_plane[3]
+                distance_normalized = distance / np.linalg.norm(self.touch_plane[:3])
+                
+                # Soglia di pressione con isteresi
+                if distance_normalized < -self.real_press_threshold:
+                    is_real_press = True
                 else:
-                    is_real_press = True          # lato opposto
-                print(f"point {point } p_res {p_res_A}  ")
+                    is_real_press = False
             else:
                 print("non calibrato")
         
@@ -99,13 +95,22 @@ class HandTracker:
                     cv2.circle(frame, (cx, cy), 3, (0, 255, 0), -1)
 
                 cv2.circle(frame, hand_pos, 8, (255, 0, 0), -1)
-                if self.touch_plane_A.__len__() == 4 and self.touch_plane_B.__len__() == 4:
-                    text = "REAL PRESS" if is_real_press else "FAKE / HOVER"
-                else: text = "NON CALIBRATO "
+                if self.touch_plane is not None:
+                    text = "PRESS" if is_real_press else "HOVER"
+                    text += f" | dist: {distance_normalized:.4f}"
+                    if self.calibration_rmse > 0.02:
+                        text = f"⚠️  AVVISO: RMSE alto ({self.calibration_rmse:.4f})"
+                        color = (0, 0, 255)
+                        cv2.putText(frame, text, (30, 40),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
+                else: 
+                    text = "NON CALIBRATO "
+               
                 text += f" {self.calibration_data.__len__()}/{CALIBRATION_POINTS} "
                 color = (0, 255, 0) if is_real_press else (0, 0, 255)
                 cv2.putText(frame, text, (10, 40),
                             cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+                
 
         #self.last_hand_pos = hand_pos
         #self.last_is_real_press = is_real_press
@@ -124,7 +129,6 @@ class HandTracker:
                     lms[12],    # tip_middle
                     lms[16],    # tip_ring
                     lms[20]     # tip_pinky
-
                 ]
                 
                 
@@ -139,44 +143,57 @@ class HandTracker:
                 return False
             if self.calibration_data.__len__() == CALIBRATION_POINTS:
                 self.touch_plane_calculator()
+
+                
         else:
             print("Calibrazione giá completata")
             return True 
             
     def touch_plane_calculator(self):
-        #------PIANO A------
-        p1 = np.array(self.calibration_data[0], dtype=float)
-        p2 = np.array(self.calibration_data[1], dtype=float)
-        p3 = np.array(self.calibration_data[2], dtype=float)
 
-        # Vettori nel piano
-        v1 = p2 - p1
-        v2 = p3 - p1
-
-        # Normale al piano (a, b, c)
-        n = np.cross(v1, v2)  # [a, b, c] 
-
-        # Termine d: imponi che il piano passi per p1
-        d = -np.dot(n, p1)  # ax1 + by1 + cz1 + d = 0  
-        self.touch_plane_A = [n[0], n[1], n[2], d]
-        #------PIANO B------
-        p1 = np.array(self.calibration_data[0], dtype=float)
-        p2 = np.array(self.calibration_data[3], dtype=float)
-        p3 = np.array(self.calibration_data[2], dtype=float)
-
-        # Vettori nel piano
-        v1 = p2 - p1
-        v2 = p3 - p1
-
-        # Normale al piano (a, b, c)
-        n = np.cross(v1, v2)  # [a, b, c] 
-
-        # Termine d: imponi che il piano passi per p1
-        d = -np.dot(n, p1)  # ax1 + by1 + cz1 + d = 0  
-        self.touch_plane_B = [n[0], n[1], n[2], d]
-
-    def reset(self):
+        points = np.array(  [
+                            self.calibration_data[0],  # Angolo A
+                            self.calibration_data[1],  # Angolo B
+                            self.calibration_data[2],  # Angolo C
+                            self.calibration_data[3],  # Angolo D
+                            self.calibration_data[4]   # CENTRO 
+                            ], dtype=float)
+        # Calcola la media dei  punti
+        centroid = points.mean(axis=0)
+        points_centered = points - centroid
         
-        self.calibration_data.clear()
-        self.touch_plane_A.clear()
-        self.touch_plane_B.clear()
+        # Applica SVD (Singular Value Decomposition)
+        # Usa la Matrice di Covarianza 
+        # @ moltiplicazione tra matrici
+        U, S, Vt = np.linalg.svd(points_centered.T @ points_centered)
+        
+        # La normale è il vettore singolare con autovalore minore
+        # (ultima riga di U, non Vt)
+        normal = U[:, -1]  # Autovettore corrispondente a σ_min
+        
+        # Calcola d del piano ax + by + cz + d = 0
+        d = -np.dot(normal, centroid)
+        
+        # Memorizza il piano
+        self.touch_plane = np.array([normal[0], normal[1], normal[2], d])
+
+        # Calcola la qualità del fitting (RMSE) Radice dell'errore quadratico medio
+        distances = np.abs(points @ self.touch_plane[:3] + self.touch_plane[3]) / \
+                    np.linalg.norm(self.touch_plane[:3])
+        self.calibration_rmse = np.sqrt((distances ** 2).mean())
+
+        print(f"✓ Piano calibrato | RMSE: {self.calibration_rmse:.6f}")
+        print(f"  Normale: ({normal[0]:.4f}, {normal[1]:.4f}, {normal[2]:.4f})")
+        print(f"  d: {d:.6f}")
+        
+        if self.calibration_rmse > 0.02:
+            print(f"⚠️  AVVISO: RMSE alto ({self.calibration_rmse:.4f})")
+            print("   Ricalibra con punti più separati o mano più ferma")
+            return False
+        return True
+    
+    def reset(self):
+        if self.calibration_data != None:
+            self.calibration_data.clear()
+        if self.touch_plane != None:
+            self.touch_plane.clear()

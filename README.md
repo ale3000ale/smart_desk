@@ -46,4 +46,10 @@ Questa sezione verrà aggiornata passo passo ma per ora:
 
 Questo è un video che fa vedere lo stato attuale del progetto (attualmente 3.5), lo uso più come proof of concept.
 
-![Demo SANDY](Demo3,5.mp4)
+![Demo SANDY](Demo1.mp4)
+
+## Aggiornamenti
+### 27/12/2025
+sto passando da un sistema che calibra la soglia del touch, con 4 punti, ovvero che trova il piano passando per tre punti A B C, ed il piano passante per 3 punti A D C , ad un sistema  che usa il Plane Fitting Least Squares su 5 punti angoli + centro
+⚠️ nuovo problema: l'asse Z non é assoluto ma relativo al polso, bisogna trovare una soluzione per calcolare la profonditá
+ 
