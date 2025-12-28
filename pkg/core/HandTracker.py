@@ -5,7 +5,10 @@ from pkg.config import *
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 from collections import deque
-
+import torch
+import torch.nn.functional as F
+from transformers import DPTImageProcessor, DPTForDepthEstimation
+from PIL import Image
 
 
 class HandTracker:
@@ -35,11 +38,28 @@ class HandTracker:
         # dati per la calibrazione del piano
         self.calibration_data = deque(maxlen=CALIBRATION_POINTS)    # punti di calibrazione
         self.touch_plane  = None       
-        self.calibration_rmse = None # matrice di qualitá               
+        self.calibration_rmse = None # matrice di qualitá   
+
+        self.depth_map = None 
+
+        # Seleziona device
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print(f"Usando device: {self.device}")
+        print("Caricando MiDaS (DPT) da Hugging Face...")
+
+        self.midas_processor = DPTImageProcessor.from_pretrained(
+            "Intel/dpt-large"    # oppure "Intel/dpt-hybrid-midas"
+        )
+        self.midas_model = DPTForDepthEstimation.from_pretrained(
+            "Intel/dpt-large"
+        ).to(self.device)
+        self.midas_model.eval()
+        
+        print("✓ MiDaS caricato con successo!")
 
     def callback(self , result: vision.HandLandmarkerResult, output_image: mp.Image, timestamp_ms: int):
         self.landmarks = result
-       
+
 
     def get_hand(self,frame,timestamp_ms=0):
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame)
@@ -57,12 +77,12 @@ class HandTracker:
 
         if result != None and result.hand_landmarks:
             lms = result.hand_landmarks[0]
-
-            #wrist = lms[0]
+            wrist = lms[0]
             #mcp_index = lms[5]
             #pip_index = lms[6]
             dip_index = lms[7]
             tip_index = lms[8]
+            print(f'{wrist.x:.9f},{wrist.y:.9f},{wrist.z:.9f}, {tip_index.z:.9f}')
             #mcp_middle = lms[9]
             #mcp_ring = lms[13]
             #mcp_pinky = lms[17]
@@ -84,8 +104,7 @@ class HandTracker:
                     is_real_press = True
                 else:
                     is_real_press = False
-            else:
-                print("non calibrato")
+
         
             
             if draw:
@@ -191,6 +210,49 @@ class HandTracker:
             print("   Ricalibra con punti più separati o mano più ferma")
             return False
         return True
+    
+
+    def estimate_depth_map(self, frame):
+        """
+        Stima mappa di profondità con MiDaS da Hugging Face
+        Input: frame (H, W, 3) BGR (OpenCV)
+        Output: depth_map (H, W) normalizzato 0-1
+        """
+        h, w = frame.shape[:2]
+        
+        try:
+            # Converti BGR → RGB
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            
+            # Converti a PIL Image
+            pil_image = Image.fromarray(frame_rgb)
+            
+            # Processa
+            inputs = self.midas_processor(images=pil_image, return_tensors="pt")
+            inputs = {k: v.to(self.device) for k, v in inputs.items()}
+            
+            with torch.no_grad():
+                outputs = self.midas_model(**inputs)
+                predicted_depth = outputs.predicted_depth
+            
+            # Ridimensiona alla dimensione originale
+            prediction = F.interpolate(
+                predicted_depth.unsqueeze(1),
+                size=(h, w),
+                mode="bicubic",
+                align_corners=False,
+            ).squeeze()
+            
+            depth_map = prediction.cpu().numpy()
+            
+            # Normalizza a 0-1
+            depth_normalized = (depth_map - depth_map.min()) / (depth_map.max() - depth_map.min() + 1e-8)
+            self.depth_map = depth_normalized
+            return self.depth_map
+        except Exception as e:
+            print(f"❌ Errore MiDaS: {e}")
+            self.depth_map = np.ones((h, w)) * 0.5
+            return self.depth_map
     
     def reset(self):
         if self.calibration_data != None:

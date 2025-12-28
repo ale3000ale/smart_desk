@@ -9,11 +9,12 @@ from pkg import *
 from pkg.config import *
 from pkg.core.Gui import Gui
 from pkg.core.HandTracker import HandTracker
-from pkg.ext_import import cv2
-
+import cv2
+import torch
 
 def core():
 	wd = Window("Camera Viewer")
+	wd_depth = Window("Depth map")
 	camera = Camera()
 	# SOLO PER QUANDO USO WINDOWS
 	camera.set_dimensions(CAMERA_DEFAULT_WIDTH, CAMERA_DEFAULT_HEIGHT)
@@ -24,7 +25,11 @@ def core():
 	#start GUI
 	gui = Gui(width=WINDOW_DEFAULT_WIDTH, height=WINDOW_DEFAULT_HEIGHT)    
 
-	timestamp_ms = 0  
+	timestamp_ms = 0 
+
+	print("CUDA disponibile:", torch.cuda.is_available())
+	print("Dispositivo predefinito:", torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+	print("Nome GPU:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else "Nessuna") 
 	while True:
 
 		#RENDER  GUI
@@ -33,10 +38,12 @@ def core():
 			print("Errore nella lettura del frame")
 			break
 		
-		
+		depth_map = tracker.estimate_depth_map(frame)
 		frame_tracked, hand_pos, is_real_press = tracker.process(
 								frame, timestamp_ms=timestamp_ms)
 		timestamp_ms += 33  # ~30 FPS
+
+		
 
 		#if is_real_press and hand_pos is not None:
 		#	print("Press reale:", hand_pos)
@@ -46,7 +53,7 @@ def core():
 
 		#  Mostra SOLO questo frame finale
 		wd.show_frame(gui_frame)
-
+		wd_depth.show_frame(depth_map)
 		# Listener pulsante GUI
 		if gui.consume_button_press():
 			print("Pulsante GUI premuto!")
