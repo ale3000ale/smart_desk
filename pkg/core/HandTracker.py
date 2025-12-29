@@ -7,8 +7,7 @@ from mediapipe.tasks.python import vision
 from collections import deque
 import torch
 import torch.nn.functional as F
-from transformers import DPTImageProcessor, DPTForDepthEstimation
-from PIL import Image
+
 
 
 class HandTracker:
@@ -37,7 +36,7 @@ class HandTracker:
 
         # dati per la calibrazione del piano
         self.calibration_data = deque(maxlen=CALIBRATION_POINTS)    # punti di calibrazione
-        self.touch_plane  = None       
+        self.touch_plane  = np.array([])       
         self.calibration_rmse = None # matrice di qualitá   
 
         self.depth_map = None 
@@ -47,15 +46,18 @@ class HandTracker:
         print(f"Usando device: {self.device}")
         print("Caricando MiDaS (DPT) da Hugging Face...")
 
-        self.midas_processor = DPTImageProcessor.from_pretrained(
-            "Intel/dpt-large"    # oppure "Intel/dpt-hybrid-midas"
-        )
-        self.midas_model = DPTForDepthEstimation.from_pretrained(
-            "Intel/dpt-large"
-        ).to(self.device)
+         # ✅ MiDaS SMALL (molto più leggero!)
+        print("Caricando MiDaS SMALL (leggero)...")
+        self.midas_model_type = "MiDaS_small"  # Modello leggero v2.1
+        self.midas_model = torch.hub.load("isl-org/MiDaS", self.midas_model_type)
+        self.midas_model = self.midas_model.to(self.device)
         self.midas_model.eval()
         
-        print("✓ MiDaS caricato con successo!")
+        midas_transforms = torch.hub.load("isl-org/MiDaS", "transforms")
+        self.midas_transform = midas_transforms.small_transform  # Trasform leggero
+        
+        print("✓ MiDaS SMALL caricato! (~60MB, molto veloce)")
+
 
     def callback(self , result: vision.HandLandmarkerResult, output_image: mp.Image, timestamp_ms: int):
         self.landmarks = result
@@ -82,18 +84,24 @@ class HandTracker:
             #pip_index = lms[6]
             dip_index = lms[7]
             tip_index = lms[8]
-            print(f'{wrist.x:.9f},{wrist.y:.9f},{wrist.z:.9f}, {tip_index.z:.9f}')
+            
+            x_px = int(tip_index.x * w)
+            y_px = int(tip_index.y * h)
+
+            z_depth = 0
+            if self.depth_map is not None and 0 <= y_px < h and 0 <= x_px < w:
+                z_depth = self.depth_map[y_px, x_px]
             #mcp_middle = lms[9]
             #mcp_ring = lms[13]
             #mcp_pinky = lms[17]
             
-            x_px = int(tip_index.x * w)
-            y_px = int(tip_index.y * h)
+            z_combined = MP_Z_WEIGTH * tip_index.z + MIDAS_Z_WEIGTH * z_depth
+            
             hand_pos = (x_px, y_px)
 
             # Calcola la posizione della mano rispetto al piano di tocco
-            if self.touch_plane is not None:
-                point = np.array([tip_index.x, tip_index.y, tip_index.z])
+            if self.touch_plane.__len__() > 0:
+                point = np.array([x_px, y_px, z_combined])
                 
                 # Distanza con segno (normalizzata)
                 distance = np.dot(point, self.touch_plane[:3]) + self.touch_plane[3]
@@ -114,21 +122,24 @@ class HandTracker:
                     cv2.circle(frame, (cx, cy), 3, (0, 255, 0), -1)
 
                 cv2.circle(frame, hand_pos, 8, (255, 0, 0), -1)
-                if self.touch_plane is not None:
+                if self.touch_plane.__len__() > 0:
                     text = "PRESS" if is_real_press else "HOVER"
-                    text += f" | dist: {distance_normalized:.4f}"
+                    text += f" | alt: {z_combined} dist: {distance_normalized:.4f}"
+                    color = (0, 255, 0) if is_real_press else (0, 0, 255)
+                    cv2.putText(frame, text, (10, 40),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
                     if self.calibration_rmse > 0.02:
-                        text = f"⚠️  AVVISO: RMSE alto ({self.calibration_rmse:.4f})"
+                        text = f" AVVISO: RMSE alto ({self.calibration_rmse:.4f})"
                         color = (0, 0, 255)
                         cv2.putText(frame, text, (30, 40),
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
                 else: 
                     text = "NON CALIBRATO "
                
-                text += f" {self.calibration_data.__len__()}/{CALIBRATION_POINTS} "
-                color = (0, 255, 0) if is_real_press else (0, 0, 255)
-                cv2.putText(frame, text, (10, 40),
-                            cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+                    text += f" {self.calibration_data.__len__()}/{CALIBRATION_POINTS} "
+                    color =  (0, 0, 255)
+                    cv2.putText(frame, text, (10, 80),
+                                cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
                 
 
         #self.last_hand_pos = hand_pos
@@ -142,28 +153,33 @@ class HandTracker:
             if result.hand_landmarks:
                 lms = result.hand_landmarks[0]
                 calibration_lms = [
-                    #lms[0],     # wrist
-                    lms[4],     # tip_thumb
-                    lms[8],     # tip_index
-                    lms[12],    # tip_middle
-                    lms[16],    # tip_ring
-                    lms[20]     # tip_pinky
+                    lms[0],     # wrist
+                    lms[5],     # tip_index
+                    lms[9],    # tip_middle
+                    lms[13],    # tip_ring
+                    lms[17]     # tip_pinky
                 ]
                 
                 
                 calibration_point = np.zeros(3, dtype=float)
                 print(calibration_point)
+                h, w = frame.shape[:2]
                 for lm in calibration_lms:
-                    calibration_point += np.array([lm.x, lm.y, lm.z]) 
+                    x_px = int(lm.x * w)
+                    y_px = int(lm.y * h)
+                    z_depth = 0
+                    if self.depth_map is not None and 0 <= y_px < h and 0 <= x_px < w:
+                        z_depth = self.depth_map[y_px, x_px]
+
+                    z_combined = MP_Z_WEIGTH * lm.z + MIDAS_Z_WEIGTH * z_depth
+                    calibration_point += np.array([x_px, y_px, z_combined*1.1]) 
                 calibration_point /= calibration_lms.__len__()
                 self.calibration_data.append(calibration_point)
             else:
                 print("Impossibile calibrare")
                 return False
             if self.calibration_data.__len__() == CALIBRATION_POINTS:
-                self.touch_plane_calculator()
-
-                
+                self.touch_plane_calculator()   
         else:
             print("Calibrazione giá completata")
             return True 
@@ -221,41 +237,31 @@ class HandTracker:
         h, w = frame.shape[:2]
         
         try:
-            # Converti BGR → RGB
-            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            
-            # Converti a PIL Image
-            pil_image = Image.fromarray(frame_rgb)
-            
-            # Processa
-            inputs = self.midas_processor(images=pil_image, return_tensors="pt")
-            inputs = {k: v.to(self.device) for k, v in inputs.items()}
+            # MiDaS small usa direttamente OpenCV (no PIL!)
+            input_batch = self.midas_transform(frame).to(self.device)
             
             with torch.no_grad():
-                outputs = self.midas_model(**inputs)
-                predicted_depth = outputs.predicted_depth
-            
-            # Ridimensiona alla dimensione originale
-            prediction = F.interpolate(
-                predicted_depth.unsqueeze(1),
-                size=(h, w),
-                mode="bicubic",
-                align_corners=False,
-            ).squeeze()
+                prediction = self.midas_model(input_batch)
+                # Resize alla dimensione originale
+                prediction = F.interpolate(
+                    prediction.unsqueeze(1),
+                    size=(h, w),
+                    mode="bicubic",
+                    align_corners=False,
+                ).squeeze()
             
             depth_map = prediction.cpu().numpy()
-            
-            # Normalizza a 0-1
             depth_normalized = (depth_map - depth_map.min()) / (depth_map.max() - depth_map.min() + 1e-8)
             self.depth_map = depth_normalized
             return self.depth_map
+            
         except Exception as e:
-            print(f"❌ Errore MiDaS: {e}")
+            print(f"❌ Errore MiDaS Small: {e}")
             self.depth_map = np.ones((h, w)) * 0.5
             return self.depth_map
     
     def reset(self):
         if self.calibration_data != None:
             self.calibration_data.clear()
-        if self.touch_plane != None:
-            self.touch_plane.clear()
+        if   self.touch_plane.__len__() > 0:
+            self.touch_plane.resize(0)
