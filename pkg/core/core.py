@@ -25,7 +25,6 @@ def core():
 	#start GUI
 	gui = Gui(width=WINDOW_DEFAULT_WIDTH, height=WINDOW_DEFAULT_HEIGHT)    
 
-	timestamp_ms = 0 
 
 	print("CUDA disponibile:", torch.cuda.is_available())
 	print("Dispositivo predefinito:", torch.device("cuda" if torch.cuda.is_available() else "cpu"))
@@ -39,11 +38,9 @@ def core():
 			break
 		
 		depth_map = tracker.estimate_depth_map(frame)
-		frame_tracked, hand_pos, is_real_press = tracker.process(
-								frame, timestamp_ms=timestamp_ms)
-		timestamp_ms += 33  # ~30 FPS
-		tracker.draw_landmark(depth_map,tracker.get_hands(frame,timestamp_ms))
-		timestamp_ms += 33
+		tracker.load_hands(frame)
+		frame_tracked, hand_pos, is_real_press = tracker.process(frame)
+		tracker.draw_landmark(depth_map,tracker.get_hands())
 
 		#if is_real_press and hand_pos is not None:
 		#	print("Press reale:", hand_pos)

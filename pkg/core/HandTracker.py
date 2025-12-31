@@ -28,6 +28,8 @@ class HandTracker:
             result_callback = self.callback
         )
         self.detector = vision.HandLandmarker.create_from_options(options)
+        self.timestamp_ms = 0
+        self.timestamp_ms_step = 33 # 1S/30FPS 1S = 1000ms
 
         self.real_press_threshold = real_press_threshold
         self.landmarks = None
@@ -39,8 +41,8 @@ class HandTracker:
         self.touch_plane  = np.array([])       
         self.calibration_rmse = None # matrice di qualitá   
 
-        self.depth_map = None 
 
+        self.depth_map = None 
         # Seleziona device
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"Usando device: {self.device}")
@@ -62,18 +64,21 @@ class HandTracker:
     def callback(self , result: vision.HandLandmarkerResult, output_image: mp.Image, timestamp_ms: int):
         self.landmarks = result
 
-
-    def get_hands(self,frame,timestamp_ms=0):
+    def load_hands(self,frame):
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame)
-        self.detector.detect_async(mp_image, timestamp_ms)
+        self.detector.detect_async(mp_image, self.timestamp_ms)
+        self.timestamp_ms += self.timestamp_ms_step
+        return self.landmarks
+
+    def get_hands(self):
         return self.landmarks
     
 
-    def process(self, frame, timestamp_ms=0, draw=True):
+    def process(self, frame, draw=True):
         h, w, _ = frame.shape
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame)
         
-        result = self.get_hands(frame, timestamp_ms)
+        result = self.get_hands()
         hand_pos = None
         is_real_press = False
 
@@ -141,10 +146,10 @@ class HandTracker:
         #self.last_is_real_press = is_real_press
         return frame, hand_pos, is_real_press
         
-    def calibrate_touch_plane(self,frame, timestamp_ms):
+    def calibrate_touch_plane(self,frame):
 
         if self.calibration_data.__len__() < CALIBRATION_POINTS:
-            result = self.get_hands(frame,timestamp_ms)
+            result = self.get_hands()
             if result.hand_landmarks:
                 lms = result.hand_landmarks[0]
                 calibration_lms = [
