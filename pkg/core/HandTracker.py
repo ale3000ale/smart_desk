@@ -7,7 +7,7 @@ from mediapipe.tasks.python import vision
 from collections import deque
 import torch
 import torch.nn.functional as F
-
+np.set_printoptions(precision=4, suppress=True)
 
 
 class HandTracker:
@@ -63,7 +63,7 @@ class HandTracker:
         self.landmarks = result
 
 
-    def get_hand(self,frame,timestamp_ms=0):
+    def get_hands(self,frame,timestamp_ms=0):
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame)
         self.detector.detect_async(mp_image, timestamp_ms)
         return self.landmarks
@@ -73,7 +73,7 @@ class HandTracker:
         h, w, _ = frame.shape
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame)
         
-        result = self.get_hand(frame, timestamp_ms)
+        result = self.get_hands(frame, timestamp_ms)
         hand_pos = None
         is_real_press = False
 
@@ -108,7 +108,7 @@ class HandTracker:
                 distance_normalized = distance / np.linalg.norm(self.touch_plane[:3])
                 
                 # Soglia di pressione con isteresi
-                if distance_normalized < -self.real_press_threshold:
+                if distance_normalized < 0 : #< -self.real_press_threshold:
                     is_real_press = True
                 else:
                     is_real_press = False
@@ -116,22 +116,17 @@ class HandTracker:
         
             
             if draw:
-                for lm in lms:
-                    cx = int(lm.x * w)
-                    cy = int(lm.y * h)
-                    cv2.circle(frame, (cx, cy), 3, (0, 255, 0), -1)
-
-                cv2.circle(frame, hand_pos, 8, (255, 0, 0), -1)
+                self.draw_landmark(frame, result)
                 if self.touch_plane.__len__() > 0:
                     text = "PRESS" if is_real_press else "HOVER"
-                    text += f" | alt: {z_combined} dist: {distance_normalized:.4f}"
+                    text += f" | alt: {z_combined}, dist: {distance:.4f} distN: {distance_normalized:.4f}"
                     color = (0, 255, 0) if is_real_press else (0, 0, 255)
                     cv2.putText(frame, text, (10, 40),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
                     if self.calibration_rmse > 0.02:
                         text = f" AVVISO: RMSE alto ({self.calibration_rmse:.4f})"
                         color = (0, 0, 255)
-                        cv2.putText(frame, text, (30, 40),
+                        cv2.putText(frame, text, (40, 40),
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
                 else: 
                     text = "NON CALIBRATO "
@@ -149,7 +144,7 @@ class HandTracker:
     def calibrate_touch_plane(self,frame, timestamp_ms):
 
         if self.calibration_data.__len__() < CALIBRATION_POINTS:
-            result = self.get_hand(frame,timestamp_ms)
+            result = self.get_hands(frame,timestamp_ms)
             if result.hand_landmarks:
                 lms = result.hand_landmarks[0]
                 calibration_lms = [
@@ -160,9 +155,8 @@ class HandTracker:
                     lms[17]     # tip_pinky
                 ]
                 
-                
+                print("cd bef:",self.calibration_data)
                 calibration_point = np.zeros(3, dtype=float)
-                print(calibration_point)
                 h, w = frame.shape[:2]
                 for lm in calibration_lms:
                     x_px = int(lm.x * w)
@@ -172,9 +166,12 @@ class HandTracker:
                         z_depth = self.depth_map[y_px, x_px]
 
                     z_combined = MP_Z_WEIGTH * lm.z + MIDAS_Z_WEIGTH * z_depth
-                    calibration_point += np.array([x_px, y_px, z_combined*1.1]) 
+                    calibration_point += np.array([x_px, y_px, z_combined])
+                print("cp:",calibration_point) 
                 calibration_point /= calibration_lms.__len__()
                 self.calibration_data.append(calibration_point)
+                print("cp/len:",calibration_point)
+                print("cd aft:",self.calibration_data)
             else:
                 print("Impossibile calibrare")
                 return False
@@ -191,8 +188,9 @@ class HandTracker:
                             self.calibration_data[1],  # Angolo B
                             self.calibration_data[2],  # Angolo C
                             self.calibration_data[3],  # Angolo D
-                            self.calibration_data[4]   # CENTRO 
+                            #self.calibration_data[4]   # CENTRO 
                             ], dtype=float)
+        print(points)
         # Calcola la media dei  punti
         centroid = points.mean(axis=0)
         points_centered = points - centroid
@@ -265,3 +263,28 @@ class HandTracker:
             self.calibration_data.clear()
         if   self.touch_plane.__len__() > 0:
             self.touch_plane.resize(0)
+
+    def draw_landmark(self, frame, hands = None, marks = [8]):
+        if hands != None and hands.hand_landmarks:
+            h, w = frame.shape[:2]
+            for hand in hands.hand_landmarks:
+                for idx,lm in enumerate(hand):
+                    x_px = int(lm.x * w)
+                    y_px = int(lm.y * h)
+
+                    # Colore base per tutti i punti
+                    color = (0, 255, 0)      # verde
+                    radius = 3
+                    thickness = -1
+
+                    # Se il landmark è nella lista 'marks', evidenzialo
+                    if idx in marks:
+                        color = (0, 0, 255)  # rosso
+                        radius = 6
+
+                    cv2.circle(frame, (x_px, y_px), radius, color, thickness)
+
+        # (Opzionale) se vuoi anche linee fra i landmark principali,
+        # puoi aggiungere qui cv2.line(...) fra coppie di punti.
+
+        return frame

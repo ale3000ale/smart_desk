@@ -42,8 +42,8 @@ def core():
 		frame_tracked, hand_pos, is_real_press = tracker.process(
 								frame, timestamp_ms=timestamp_ms)
 		timestamp_ms += 33  # ~30 FPS
-
-		
+		tracker.draw_landmark(depth_map,tracker.get_hands(frame,timestamp_ms))
+		timestamp_ms += 33
 
 		#if is_real_press and hand_pos is not None:
 		#	print("Press reale:", hand_pos)
