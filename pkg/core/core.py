@@ -40,17 +40,17 @@ def core():
 		depth_map = tracker.estimate_depth_map(frame)
 		tracker.load_hands(frame)
 		frame_tracked, hand_pos, is_real_press = tracker.process(frame)
-		tracker.draw_landmark(depth_map,tracker.get_hands())
 
-		#if is_real_press and hand_pos is not None:
-		#	print("Press reale:", hand_pos)
+		tracker.draw_landmark(frame)
+		tracker.draw_landmark(depth_map)
 
-		#  Rendering GUI sopra il frame tracciato
+		# Rendering GUI sopra il frame tracciato
 		gui_frame = gui.render(frame_tracked)
 
-		#  Mostra SOLO questo frame finale
+		# Mostra i frame
 		wd.show_frame(gui_frame)
 		wd_depth.show_frame(depth_map)
+
 		# Listener pulsante GUI
 		if gui.consume_button_press():
 			print("Pulsante GUI premuto!")
@@ -62,8 +62,7 @@ def core():
 		if key == ord(config.KEY_CHANGE_CAMERA):
 			camera.change_camera()
 		if key == ord(config.KEY_CALIBRATION):
-			tracker.calibrate_touch_plane(frame, timestamp_ms=timestamp_ms)
-			timestamp_ms += 33
+			tracker.calibrate_touch_plane(frame)
 		if key == ord(config.KEY_RESET):
 			tracker.reset()
 
