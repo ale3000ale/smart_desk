@@ -60,5 +60,5 @@ avevo 3 opzioni per risolvere il problema dell'asse Z
  
 Ho optato per la 3 ma ora, dopo giorni di tentativi, mi accorco che con Midas ligth (quello completo era troppo pesante e lento) ha il difetto inglobare la posizione della falange con la posizione "media" del resto del dito, fino alla nocca, il che mi ha fatto smadonnare tanto, ma tanto fino a che non me ne sono accorto, ora ho deciso di provare con il parallasse
 
-![MidasPrima](assets/screenshot.png)
-![MidasDopo](assets/screenshot.png)
+![MidasPrima](assets/4readme/pre.png)
+![MidasDopo](assets/4readme/post.png)
