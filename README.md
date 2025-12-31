@@ -50,6 +50,15 @@ Questo è un video che fa vedere lo stato attuale del progetto (attualmente 3.5)
 
 ## Aggiornamenti
 ### 27/12/2025
-sto passando da un sistema che calibra la soglia del touch, con 4 punti, ovvero che trova il piano passando per tre punti A B C, ed il piano passante per 3 punti A D C , ad un sistema  che usa il Plane Fitting Least Squares su 5 punti angoli + centro
+Sto passando da un sistema che calibra la soglia del touch, con 4 punti, ovvero che trova il piano passando per tre punti A B C, ed il piano passante per 3 punti A D C , ad un sistema  che usa il Plane Fitting Least Squares su 5 punti angoli + centro
 ⚠️ nuovo problema: l'asse Z non é assoluto ma relativo al polso, bisogna trovare una soluzione per calcolare la profonditá
+### 30-31/12/25
+avevo 3 opzioni per risolvere il problema dell'asse Z
+1) Magie con la posizione delle dita relativa a quella del polso
+2) Uso il parallasse, ma necessito di una seconda videocamera, fissata ed ad una distanza fissa dall'altra
+3) Uso una IA (Midas) per provare a calcolare una certa profonditá 
  
+Ho optato per la 3 ma ora, dopo giorni di tentativi, mi accorco che con Midas ligth (quello completo era troppo pesante e lento) ha il difetto inglobare la posizione della falange con la posizione "media" del resto del dito, fino alla nocca, il che mi ha fatto smadonnare tanto, ma tanto fino a che non me ne sono accorto, ora ho deciso di provare con il parallasse
+
+![MidasPrima](assets/screenshot.png)
+![MidasDopo](assets/screenshot.png)
