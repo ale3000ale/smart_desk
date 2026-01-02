@@ -37,23 +37,6 @@ class HandTracker:
         self.depth_map = None 
         
 
-        # Seleziona device
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        print(f"Usando device: {self.device}")
-        print("Caricando MiDaS (DPT) da Hugging Face...")
-
-         # ✅ MiDaS SMALL (molto più leggero!)
-        print("Caricando MiDaS SMALL (leggero)...")
-        self.midas_model_type = "MiDaS_small"  # Modello leggero v2.1
-        self.midas_model = torch.hub.load("isl-org/MiDaS", self.midas_model_type)
-        self.midas_model = self.midas_model.to(self.device)
-        self.midas_model.eval()
-        
-        midas_transforms = torch.hub.load("isl-org/MiDaS", "transforms")
-        self.midas_transform = midas_transforms.small_transform  # Trasform leggero
-        
-        print("✓ MiDaS SMALL caricato! (~60MB, molto veloce)")
-
         # Attributi Funzionali
         self.real_press_threshold = PRESS_TRESHOLD
         self.hands = None
@@ -219,37 +202,72 @@ class HandTracker:
         return True
     
 
-    def estimate_depth_map(self, frame):
+    def estimate_depth_map(self, frame_left, frame_right):
         """
-        Stima mappa di profondità con MiDaS da Hugging Face
-        Input: frame (H, W, 3) BGR (OpenCV)
-        Output: depth_map (H, W) normalizzato 0-1
+        Stima mappa di profondità da due frame stereo (left, right) usando StereoSGBM.
+        Input: frame_left, frame_right = immagini BGR rettificate, stessa dimensione.
+        Output: self.depthmap = H x W, float32 normalizzata 0-1.
         """
-        h, w = frame.shape[:2]
-        
-        try:
-            # MiDaS small usa direttamente OpenCV (no PIL!)
-            input_batch = self.midas_transform(frame).to(self.device)
-            
-            with torch.no_grad():
-                prediction = self.midas_model(input_batch)
-                # Resize alla dimensione originale
-                prediction = F.interpolate(
-                    prediction.unsqueeze(1),
-                    size=(h, w),
-                    mode="bicubic",
-                    align_corners=False,
-                ).squeeze()
-            
-            depth_map = prediction.cpu().numpy()
-            depth_normalized = (depth_map - depth_map.min()) / (depth_map.max() - depth_map.min() + 1e-8)
-            self.depth_map = depth_normalized
-            return self.depth_map
-            
-        except Exception as e:
-            print(f"❌ Errore MiDaS Small: {e}")
-            self.depth_map = np.ones((h, w)) * 0.5
-            return self.depth_map
+        # Se uno dei frame è None, tieni depthmap costante (fallback)
+        if frame_left is None or frame_right is None:
+            if self.depthmap is None:
+                # Depth costante "a metà" come fallback
+                h, w = frame_left.shape[:2] if frame_left is not None else frame_right.shape[:2]
+                self.depthmap = np.ones((h, w), dtype=np.float32) * 0.5
+            return self.depthmap
+
+        # Assumi che siano già rettificate (se hai fatto stereoRectify+remap nella StereoCamera)
+        # Se non sono rettificate, comunque otterrai qualcosa, ma peggiore.
+
+        # Scala a grigio
+        gray_left = cv2.cvtColor(frame_left, cv2.COLOR_BGR2GRAY)
+        gray_right = cv2.cvtColor(frame_right, cv2.COLOR_BGR2GRAY)
+
+        # Parametri base StereoSGBM (puoi regolarli dopo)
+        window_size = 5
+        min_disp = 0
+        num_disp = 64  # deve essere multiplo di 16
+
+        stereo = cv2.StereoSGBM_create(
+            minDisparity=min_disp,
+            numDisparities=num_disp,
+            blockSize=window_size,
+            P1=8 * 3 * window_size ** 2,
+            P2=32 * 3 * window_size ** 2,
+            disp12MaxDiff=1,
+            uniquenessRatio=10,
+            speckleWindowSize=100,
+            speckleRange=32
+        )
+
+        # Calcola disparità (valori int16 scalati di solito x16) 
+        disparity = stereo.compute(gray_left, gray_right).astype(np.float32) / 16.0
+
+        # Maschera valori invalidi (disparità <= 0)
+        disparity[disparity <= 0] = np.nan
+
+        # Normalizza disparità in [0,1] ignorando NaN 
+        disp_min = np.nanmin(disparity)
+        disp_max = np.nanmax(disparity)
+
+        if not np.isfinite(disp_min) or not np.isfinite(disp_max) or disp_max - disp_min < 1e-6:
+            # Se qualcosa va storto, fallback
+            if self.depthmap is None:
+                h, w = gray_left.shape
+                self.depthmap = np.ones((h, w), dtype=np.float32) * 0.5
+            return self.depthmap
+
+        disp_norm = (disparity - disp_min) / (disp_max - disp_min)
+
+        # Opzionale: inverti se vuoi che "più vicino = valore più alto"
+        depth =  disp_norm - 1.0
+
+        # Sostituisci eventuali NaN con 0.5
+        depth = np.nan_to_num(depth, nan=0.5)
+
+        self.depthmap = depth.astype(np.float32)
+        return self.depthmap
+
     
     def reset(self):
         if self.calibration_data != None:

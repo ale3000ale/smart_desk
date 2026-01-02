@@ -48,7 +48,9 @@ class StereoCamera:
 		else:
 			self.width = Bwidth
 			self.height = Bheight
-
+		self.width = int(self.width)
+		self.height = int(self.height)
+		print(f"W: {self.width}  H: {self.height}")
 		
 
 		# Configura le dimensioni

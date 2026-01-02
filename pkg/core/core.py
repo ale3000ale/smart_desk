@@ -17,15 +17,14 @@ import torch
 
 def core():
 	wd = Window("Camera Viewer")
+	wd_l = Window("Camera Left")
+	wd_r = Window("Camera Rigth")
 	wd_depth = Window("Depth map")
 	
-	mono_camera = Camera(2)
+	#mono_camera = Camera(2)
 	stereo_camera = StereoCamera(0,1)
-	#
 	stereo_camera.load_stereo_calibration("stereo_calib.npz")
-	# SOLO PER QUANDO USO WINDOWS
-	mono_camera.set_dimensions(CAMERA_DEFAULT_WIDTH, CAMERA_DEFAULT_HEIGHT)
-
+	#stereo_camera.set_dimensions(CAMERA_DEFAULT_WIDTH, CAMERA_DEFAULT_HEIGHT)
 	#start ML
 	tracker = HandTracker()
 	#start elaboratore
@@ -33,22 +32,27 @@ def core():
 	gui = Gui(width=WINDOW_DEFAULT_WIDTH, height=WINDOW_DEFAULT_HEIGHT)    
 
 
-	print("CUDA disponibile:", torch.cuda.is_available())
-	print("Dispositivo predefinito:", torch.device("cuda" if torch.cuda.is_available() else "cpu"))
-	print("Nome GPU:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else "Nessuna") 
 	while True:
 
 		#RENDER  GUI
-		ret, frame = mono_camera.read() 
-		if not ret:
-			print("Errore nella lettura del frame")
-			break
-		
-		depth_map = tracker.estimate_depth_map(frame)
-		tracker.load_hands(frame)
-		frame_tracked, hand_pos, is_real_press = tracker.process(frame)
+		ret_l, ret_r, frame_l, frame_r = stereo_camera.read()
+		if not (ret_l and ret_r):
+			#print("Errore nella lettura del frame stereo")
+			continue
 
-		tracker.draw_landmark(frame)
+		# Se hai calibrazione, rettifica
+		if stereo_camera.stereo_params is not None:
+			print("rettifico")
+			frame_l, frame_r = stereo_camera.rectify_frames(frame_l, frame_r) 
+
+		depth_map = tracker.estimate_depth_map(frame_l, frame_r)
+
+		tracker.load_hands(frame_l)
+		frame_tracked, hand_pos, is_real_press = tracker.process(frame_l)
+		#print("Tracking con L")
+		tracker.draw_landmark(frame_tracked)
+		tracker.draw_landmark(frame_l)
+		tracker.draw_landmark(frame_r)
 		tracker.draw_landmark(depth_map)
 
 		# Rendering GUI sopra il frame tracciato
@@ -56,6 +60,8 @@ def core():
 
 		# Mostra i frame
 		wd.show_frame(gui_frame)
+		wd_l.show_frame(frame_l)
+		wd_r.show_frame(frame_r)
 		wd_depth.show_frame(depth_map)
 
 		# Listener pulsante GUI
@@ -67,13 +73,13 @@ def core():
 		if key == ord(config.KEY_QUIT):
 			break
 		if key == ord(config.KEY_CHANGE_CAMERA):
-			mono_camera.change_camera()
+			stereo_camera.change_camera()
 		if key == ord(config.KEY_CALIBRATION):
-			tracker.calibrate_touch_plane(frame)
+			tracker.calibrate_touch_plane(frame_r)
 		if key == ord(config.KEY_RESET):
 			tracker.reset()
 
 		
 	
-	mono_camera.release()
+	stereo_camera.release()
 	cv2.destroyAllWindows()
