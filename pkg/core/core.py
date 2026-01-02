@@ -17,14 +17,14 @@ import torch
 
 def core():
 	wd = Window("Camera Viewer")
-	wd_l = Window("Camera Left")
-	wd_r = Window("Camera Rigth")
+	#wd_l = Window("Camera Left")
+	#wd_r = Window("Camera Rigth")
 	wd_depth = Window("Depth map")
 	
 	#mono_camera = Camera(2)
 	stereo_camera = StereoCamera(0,1)
 	stereo_camera.load_stereo_calibration("stereo_calib.npz")
-	stereo_camera.set_dimensions(CAMERA_DEFAULT_WIDTH, CAMERA_DEFAULT_HEIGHT)
+	#stereo_camera.set_dimensions(CAMERA_DEFAULT_WIDTH, CAMERA_DEFAULT_HEIGHT)
 	#start ML
 	tracker = HandTracker()
 	#start elaboratore
@@ -42,7 +42,7 @@ def core():
 
 		# Se hai calibrazione, rettifica
 		if stereo_camera.stereo_params is not None:
-			print("rettifico")
+			#print("R")
 			frame_l, frame_r = stereo_camera.rectify_frames(frame_l, frame_r) 
 
 		depth_map = tracker.estimate_depth_map(frame_l, frame_r)
@@ -51,8 +51,8 @@ def core():
 		frame_tracked, hand_pos, is_real_press = tracker.process(frame_l)
 		#print("Tracking con L")
 		tracker.draw_landmark(frame_tracked)
-		tracker.draw_landmark(frame_l)
-		tracker.draw_landmark(frame_r)
+		#tracker.draw_landmark(frame_l)
+		#tracker.draw_landmark(frame_r)
 		tracker.draw_landmark(depth_map)
 
 		# Rendering GUI sopra il frame tracciato
@@ -60,8 +60,8 @@ def core():
 
 		# Mostra i frame
 		wd.show_frame(gui_frame)
-		wd_l.show_frame(frame_l)
-		wd_r.show_frame(frame_r)
+		#wd_l.show_frame(frame_l)
+		#wd_r.show_frame(frame_r)
 		wd_depth.show_frame(depth_map)
 
 		# Listener pulsante GUI

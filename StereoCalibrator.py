@@ -57,8 +57,20 @@ class StereoCameraCalibrator:
 			print(f"Errore: impossibile aprire camere {left_camera_idx}, {right_camera_idx}")
 			return
 		
+		Awidth = cap_left.get(cv2.CAP_PROP_FRAME_WIDTH)
+		Aheight = cap_left.get(cv2.CAP_PROP_FRAME_HEIGHT)
+		Bwidth = cap_right.get(cv2.CAP_PROP_FRAME_WIDTH)
+		Bheight = cap_right.get(cv2.CAP_PROP_FRAME_HEIGHT)
+		if Awidth * Aheight < Bwidth * Bheight:
+			width = int(Awidth)
+			height = int(Aheight)
+			print("dimensioni di left")
+		else:
+			width = int(Bwidth)
+			height = int(Bheight)
+			print("dimensioni di rigth")
+		print(f"W: {width}  H: {height}")
 		# Imposta risoluzione identica
-		width, height = 1280, 720
 		cap_left.set(cv2.CAP_PROP_FRAME_WIDTH, width)
 		cap_left.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
 		cap_right.set(cv2.CAP_PROP_FRAME_WIDTH, width)
@@ -361,14 +373,6 @@ if __name__ == "__main__":
 	CHECKERBOARD_SIZE = (10, 7)  # angoli interni (stampa 9×7 quadrati)
 	SQUARE_SIZE_MM = 25.0  # Misura il tuo quadrato!
 
-	data = np.load("stereo_calib.npz")
-
-	print("=== Contenuto stereo_calib.npz ===")
-	for key in data.files:
-		arr = data[key]
-		print(f"{key}: shape={arr.shape}, dtype={arr.dtype}")
-		print(f"  Campione: {arr.flat[:3]}")  # Primi 3 valori
-
 	cap = cv2.VideoCapture(0)
 
 	while True:
@@ -399,3 +403,10 @@ if __name__ == "__main__":
 	# Esegui calibrazione
 	# Cambia indici se le tue camere sono su porte diverse
 	calibrator.run_full_calibration(left_idx=0, right_idx=1, num_images=20)
+	data = np.load("stereo_calib.npz")
+
+	print("=== Contenuto stereo_calib.npz ===")
+	for key in data.files:
+		arr = data[key]
+		print(f"{key}: shape={arr.shape}, dtype={arr.dtype}")
+		print(f"  Campione: {arr.flat[:3]}")  # Primi 3 valori

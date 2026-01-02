@@ -50,6 +50,9 @@ class StereoCamera:
 			self.height = Bheight
 		self.width = int(self.width)
 		self.height = int(self.height)
+		self.cap_left.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
+		self.cap_right.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
+
 		print(f"W: {self.width}  H: {self.height}")
 		
 
@@ -147,14 +150,16 @@ class StereoCamera:
 		"""
 		try:
 			data = np.load(calibration_file)
+    
+			K_left = data['K_left'].astype(np.float64)
+			D_left = data['D_left'].astype(np.float64).flatten()  # ← ADD
+			K_right = data['K_right'].astype(np.float64)
+			D_right = data['D_right'].astype(np.float64).flatten()  # ← ADD
+			R = data['R'].astype(np.float64)
+			T = data['T'].astype(np.float64)
 			
-			# Estrai parametri
-			K_left = data['K_left']
-			D_left = data['D_left']
-			K_right = data['K_right']
-			D_right = data['D_right']
-			R = data['R']
-			T = data['T']
+			if T.ndim == 1:
+				T = T.reshape(3, 1)
 			
 			# Calcola le rettifiche
 			R1, R2, P1, P2, Q, validRoiL, validRoiR = cv2.stereoRectify(
