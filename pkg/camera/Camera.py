@@ -3,9 +3,9 @@ import pkg.config as const
 from pkg.ext_import import cv2
 
 class Camera:
-	def __init__(self):
-		self.index = const.CAMERA_DEFAULT_INDEX
-		self.cap = cv2.VideoCapture(self.index)
+	def __init__(self, index = const.CAMERA_DEFAULT_INDEX):
+		self.index = index
+		self.cap = cv2.VideoCapture(self.index,cv2.CAP_DSHOW)
 		if not self.cap.isOpened():
 			raise RuntimeError(f"Non è possibile aprire la videocamera {self.index}")
 		""" Ottieni dimensioni iniziali attenzione get restituisce float va convertito a int"""

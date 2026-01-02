@@ -9,15 +9,22 @@ from pkg import *
 from pkg.config import *
 from pkg.core.Gui import Gui
 from pkg.core.HandTracker import HandTracker
+from pkg.camera import SteroCamera
+import os
+os.environ["OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS"] = "0"
 import cv2
 import torch
 
 def core():
 	wd = Window("Camera Viewer")
 	wd_depth = Window("Depth map")
-	camera = Camera()
+	
+	mono_camera = Camera(2)
+	stereo_camera = StereoCamera(0,1)
+	#
+	stereo_camera.load_stereo_calibration("stereo_calib.npz")
 	# SOLO PER QUANDO USO WINDOWS
-	camera.set_dimensions(CAMERA_DEFAULT_WIDTH, CAMERA_DEFAULT_HEIGHT)
+	mono_camera.set_dimensions(CAMERA_DEFAULT_WIDTH, CAMERA_DEFAULT_HEIGHT)
 
 	#start ML
 	tracker = HandTracker()
@@ -32,7 +39,7 @@ def core():
 	while True:
 
 		#RENDER  GUI
-		ret, frame = camera.read() 
+		ret, frame = mono_camera.read() 
 		if not ret:
 			print("Errore nella lettura del frame")
 			break
@@ -60,7 +67,7 @@ def core():
 		if key == ord(config.KEY_QUIT):
 			break
 		if key == ord(config.KEY_CHANGE_CAMERA):
-			camera.change_camera()
+			mono_camera.change_camera()
 		if key == ord(config.KEY_CALIBRATION):
 			tracker.calibrate_touch_plane(frame)
 		if key == ord(config.KEY_RESET):
@@ -68,5 +75,5 @@ def core():
 
 		
 	
-	camera.release()
+	mono_camera.release()
 	cv2.destroyAllWindows()

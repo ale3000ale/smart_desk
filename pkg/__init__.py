@@ -10,6 +10,7 @@ Esporta:
 
 # ============= LIBRERIE INTERNE =============
 from .camera.Camera import Camera
+from .camera.SteroCamera import StereoCamera
 from .window.Window import Window
 from .core import core 
 from .core import Gui
@@ -27,7 +28,7 @@ __all__ = [
     # Config
     'config',
 	# Classi
-	'Camera', 'Window','Gui',
+	'Camera','StereoCamera', 'Window','Gui',
 	# Funzioni
 	'core'
 ]
