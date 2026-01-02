@@ -116,11 +116,6 @@ class StereoCameraCalibrator:
 		print()
 	
 	def detect_corners_in_images(self):
-		"""
-		Fase 2: Rileva gli angoli della scacchiera in tutte le immagini.
-		
-		Carica le immagini catturate, trova i corner, affina con subpixel accuracy.
-		"""
 		print("=" * 60)
 		print("FASE 2: RILEVAMENTO CORNER SULLA SCACCHIERA")
 		print("=" * 60)
@@ -129,25 +124,38 @@ class StereoCameraCalibrator:
 		images_right = sorted(glob.glob("calibration_images/right/*.png"))
 		
 		if len(images_left) == 0 or len(images_right) == 0:
-			print("Errore: nessuna immagine trovata. Esegui FASE 1 prima.")
+			print("Errore: nessuna immagine trovata.")
 			return False
 		
 		print(f"Trovate {len(images_left)} immagini left e {len(images_right)} immagini right")
 		print()
 		
+		valid_count = 0
 		for img_left, img_right in zip(images_left, images_right):
 			frame_l = cv2.imread(img_left)
 			frame_r = cv2.imread(img_right)
 			
+			if frame_l is None or frame_r is None:
+				print(f"✗ Errore lettura {os.path.basename(img_left)}")
+				continue
+			
 			gray_l = cv2.cvtColor(frame_l, cv2.COLOR_BGR2GRAY)
 			gray_r = cv2.cvtColor(frame_r, cv2.COLOR_BGR2GRAY)
 			
-			# Rileva corner scacchiera
 			ret_l, corners_l = cv2.findChessboardCorners(gray_l, self.checkerboard_size, None)
 			ret_r, corners_r = cv2.findChessboardCorners(gray_r, self.checkerboard_size, None)
 			
 			if ret_l and ret_r:
-				# Affina corner con subpixel accuracy
+				# ✅ NUOVO: Validazione distanza media tra corner
+				dist_l = np.mean(np.linalg.norm(np.diff(corners_l.reshape(-1, 2), axis=0), axis=1))
+				dist_r = np.mean(np.linalg.norm(np.diff(corners_r.reshape(-1, 2), axis=0), axis=1))
+				
+				# Se distanze sono troppo diverse = incoerenza
+				if abs(dist_l - dist_r) / max(dist_l, dist_r) > 0.3:  # >30% differenza
+					print(f"✗ {os.path.basename(img_left)}: distanze corner incoerenti (dist_l={dist_l:.1f}, dist_r={dist_r:.1f})")
+					continue
+				
+				# Affina corner
 				corners_l = cv2.cornerSubPix(gray_l, corners_l, (5, 5), (-1, -1), self.criteria)
 				corners_r = cv2.cornerSubPix(gray_r, corners_r, (5, 5), (-1, -1), self.criteria)
 				
@@ -155,14 +163,15 @@ class StereoCameraCalibrator:
 				self.imgpoints_left.append(corners_l)
 				self.imgpoints_right.append(corners_r)
 				
-				print(f"✓ {os.path.basename(img_left)}: corner rilevati")
+				valid_count += 1
+				print(f"✓ {os.path.basename(img_left)}: corner rilevati (dist_l={dist_l:.1f}, dist_r={dist_r:.1f})")
 			else:
-				print(f"✗ {os.path.basename(img_left)}: corner NON rilevati (salta)")
+				print(f"✗ {os.path.basename(img_left)}: corner NON rilevati in una camera")
 		
 		print()
-		print(f"Totale immagini valide: {len(self.objpoints)}")
-		if len(self.objpoints) < 5:
-			print("Errore: servono almeno 5 immagini valide. Ricattura con migliore qualità.")
+		print(f"Totale immagini valide: {valid_count}")
+		if valid_count < 5:
+			print("Errore: servono almeno 5 immagini valide.")
 			return False
 		
 		return True
@@ -225,6 +234,13 @@ class StereoCameraCalibrator:
 		
 		flags = cv2.CALIB_FIX_INTRINSIC  # Fissa intrinseci calcolati nella Fase 3
 		
+		    # ✅ Criteri più severi
+		criteria_stereo_strict = (
+			cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 
+			200,      # max iter (era 100)
+			1e-6      # epsilon (era 0.0001)
+		)
+
 		print("Calcolo R (rotazione) e T (traslazione)...")
 		ret, self.mtx_left, self.dist_left, self.mtx_right, self.dist_right, \
 			self.R, self.T, self.E, self.F = cv2.stereoCalibrate(
@@ -233,35 +249,36 @@ class StereoCameraCalibrator:
 			self.mtx_right, self.dist_right,
 			image_shape, self.criteria_stereo, flags
 		)
+		stereo_error = ret  # ← USO DIRETTAMENTE IL VALORE RITORNATO
+		# ✅ NUOVO: Validazione con baseline fisico
+		baseline_fisico = 90.0  # ← CAMBIA CON LA TUA DISTANZA IN MM
+		baseline_calcolato = np.linalg.norm(self.T)
 		
-		# Calcola stereo reprojection error
-		total_error = 0
-		for i in range(len(self.objpoints)):
-			projected_l, _ = cv2.projectPoints(self.objpoints[i], 
-											   cv2.Rodrigues(np.zeros((3, 1)))[0],
-											   np.zeros((3, 1)),
-											   self.mtx_left, self.dist_left)
-			error_l = cv2.norm(self.imgpoints_left[i] - projected_l)
-			
-			# RIGHT: proietta con R, T
-			R_vec = cv2.Rodrigues(self.R)[0]
-			projected_r, _ = cv2.projectPoints(self.objpoints[i], R_vec, self.T,
-											   self.mtx_right, self.dist_right)
-			error_r = cv2.norm(self.imgpoints_right[i] - projected_r)
-			
-			total_error += (error_l + error_r) / len(self.objpoints[i])
+		errore_percentuale = abs(baseline_calcolato - baseline_fisico) / baseline_fisico * 100
 		
-		stereo_error = total_error / len(self.objpoints)
+		print(f"Baseline fisico (misurato): {baseline_fisico:.1f} mm")
+		print(f"Baseline calcolato: {baseline_calcolato:.1f} mm")
+		print(f"Errore: {errore_percentuale:.1f}%")
+		if errore_percentuale > 20:  # Se errore > 20%
+			print("⚠ AVVISO: Baseline calcolato != fisico. Ricattura con migliore qualità!")
+			return False
+		
+		# Validazione R
+		det_R = np.linalg.det(self.R)
+		print(f"R determinante: {det_R:.6f} (deve essere ~1.0)")
+		
+		if det_R < 0.95 or det_R > 1.05:
+			print("⚠ R non è una matrice di rotazione valida!")
+			return False
+		
 		print(f"Stereo Reprojection Error: {stereo_error:.4f} px")
-		print()
-		
-		# Obiettivo: stereo error < 0.3 px (eccellente < 0.1)
 		if stereo_error > 0.5:
-			print("⚠ AVVISO: Errore stereo elevato. Ricattura o ricaliber.")
+			print("⚠ AVVISO: Errore stereo elevato.")
 		elif stereo_error < 0.25:
 			print("✓ Calibrazione eccellente!")
 		
 		return ret
+		
 	
 	def save_calibration(self, filename="stereo_calib.npz"):
 		"""
@@ -271,15 +288,20 @@ class StereoCameraCalibrator:
 		print("FASE 5: SALVATAGGIO PARAMETRI")
 		print("=" * 60)
 		
+		# Assicura che D siano vettori 1D
+		D_left = self.dist_left.flatten()
+		D_right = self.dist_right.flatten()
+		T_saved = self.T.flatten() if self.T.ndim > 1 else self.T
+		
 		np.savez(filename,
-				 K_left=self.mtx_left,
-				 D_left=self.dist_left,
-				 K_right=self.mtx_right,
-				 D_right=self.dist_right,
-				 R=self.R,
-				 T=self.T,
-				 E=self.E,
-				 F=self.F)
+				K_left=self.mtx_left,
+				D_left=D_left,       # ← Flatten
+				K_right=self.mtx_right,
+				D_right=D_right,     # ← Flatten
+				R=self.R,
+				T=T_saved,
+				E=self.E,
+				F=self.F)
 		
 		print(f"✓ Parametri salvati in: {filename}")
 		print()
@@ -339,6 +361,13 @@ if __name__ == "__main__":
 	CHECKERBOARD_SIZE = (10, 7)  # angoli interni (stampa 9×7 quadrati)
 	SQUARE_SIZE_MM = 25.0  # Misura il tuo quadrato!
 
+	data = np.load("stereo_calib.npz")
+
+	print("=== Contenuto stereo_calib.npz ===")
+	for key in data.files:
+		arr = data[key]
+		print(f"{key}: shape={arr.shape}, dtype={arr.dtype}")
+		print(f"  Campione: {arr.flat[:3]}")  # Primi 3 valori
 
 	cap = cv2.VideoCapture(0)
 

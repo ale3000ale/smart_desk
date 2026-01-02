@@ -24,7 +24,7 @@ def core():
 	#mono_camera = Camera(2)
 	stereo_camera = StereoCamera(0,1)
 	stereo_camera.load_stereo_calibration("stereo_calib.npz")
-	#stereo_camera.set_dimensions(CAMERA_DEFAULT_WIDTH, CAMERA_DEFAULT_HEIGHT)
+	stereo_camera.set_dimensions(CAMERA_DEFAULT_WIDTH, CAMERA_DEFAULT_HEIGHT)
 	#start ML
 	tracker = HandTracker()
 	#start elaboratore
