@@ -244,7 +244,7 @@ class HandTracker:
         # ========================================================================
         # STEP 3: CONFIGURAZIONE StereoSGBM CON PARAMETRI ROBUSTI
         # ========================================================================
-        window_size = 11                   # Aumentato da 5 → area ricerca 11x11 vs 5x5
+        window_size = 5                   # Aumentato da 5 → area ricerca 11x11 vs 5x5
         min_disp = 0
         num_disp = 64                      # Multiplo di 16 (richiesto da OpenCV)
 
