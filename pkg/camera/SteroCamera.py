@@ -3,11 +3,10 @@
 import cv2
 import numpy as np
 from pkg.config import *
+from pkg.window.Window import Window
 from threading import Thread, Lock
 import time
 
-import os
-os.environ["OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS"] = "0"
 import pkg.config as const 
 import cv2
 
@@ -32,41 +31,25 @@ class StereoCamera:
 		
 
 		# Apri le due videocamere
-		self.cap_left = cv2.VideoCapture(self.left_index, cv2.CAP_DSHOW)
-		self.cap_right = cv2.VideoCapture(self.right_index,cv2.CAP_DSHOW)
+		self.cap_left = cv2.VideoCapture(self.left_index )
+		self.cap_right = cv2.VideoCapture(self.right_index)
 
 		if not self.cap_left.isOpened() or not self.cap_right.isOpened():
 			raise RuntimeError(f"Impossibile aprire le videocamere {left_index} e/o {right_index}")
 		
-		Awidth = self.cap_left.get(cv2.CAP_PROP_FRAME_WIDTH)
-		Aheight = self.cap_left.get(cv2.CAP_PROP_FRAME_HEIGHT)
-		Bwidth = self.cap_right.get(cv2.CAP_PROP_FRAME_WIDTH)
-		Bheight = self.cap_right.get(cv2.CAP_PROP_FRAME_HEIGHT)
-		if Awidth * Aheight < Bwidth * Bheight:
-			self.width = Awidth
-			self.height = Aheight
-		else:
-			self.width = Bwidth
-			self.height = Bheight
-		self.width = int(self.width)
-		self.height = int(self.height)
-		self.cap_left.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
-		self.cap_right.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
-
+		self.width , self.height = self.select_dimensions()
 		print(f"W: {self.width}  H: {self.height}")
+
+		self.set_dimensions( self.width, self.height)
+	
 		
-
-		# Configura le dimensioni
-		self._set_camera_properties(self.cap_left, self.width, self.height)
-		self._set_camera_properties(self.cap_right, self.width, self.height)
-
 		# Variabili per sincronizzazione thread
 		self.lock = Lock()
 		self.frame_left = None
 		self.frame_right = None
 		self.frame_left_ready = False
 		self.frame_right_ready = False
-
+		
 		# Thread di lettura asincrona (opzionale, per sincronia migliore)
 		self.reading = True
 		
@@ -80,7 +63,22 @@ class StereoCamera:
 		self.map_left = None
 		self.map_right = None
 
+		self.wd = Window("Stereo Camera L | R",self.width * 2, self.height)
+
+
 		print(f"StereoCamera inizializzata: {self.width}x{self.height} (Left: {left_index}, Right: {right_index})")
+
+	def select_dimensions(self):
+		Awidth = self.cap_left.get(cv2.CAP_PROP_FRAME_WIDTH)
+		Aheight = self.cap_left.get(cv2.CAP_PROP_FRAME_HEIGHT)
+		Bwidth = self.cap_right.get(cv2.CAP_PROP_FRAME_WIDTH)
+		Bheight = self.cap_right.get(cv2.CAP_PROP_FRAME_HEIGHT)
+		if Awidth * Aheight < Bwidth * Bheight:
+			return int(Awidth), int(Aheight)
+		else:
+			return int(Bwidth), int(Bheight)
+
+		
 
 	def _set_camera_properties(self, cap, width, height):
 		"""Imposta proprietà della videocamera."""
@@ -123,6 +121,7 @@ class StereoCamera:
 				fr = self.frame_right.copy()
 				self.frame_left_ready = False
 				self.frame_right_ready = False
+				self.wd.show_frame(np.hstack([fl, fr]))
 				return True, True, fl, fr
 		return False, False, None, None
 
@@ -238,6 +237,82 @@ class StereoCamera:
 		self.cap_left.release()
 		self.cap_right.release()
 		print("StereoCamera rilasciata")
+
+
+	def scout_cameras(self):						
+		cameras_info = []
+				
+		# Disabilita i log durante la ricerca
+		old_log_level = cv2.getLogLevel()
+	
+		cv2.setLogLevel(0)
+
+		for index in range(10):  # Verifica i primi 10 indici
+			cap = cv2.VideoCapture(index)
+			
+			if cap.isOpened():
+				width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+				height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+				fps = cap.get(cv2.CAP_PROP_FPS)
+				
+				camera_data = {
+					'index': index,
+					'width': width,
+					'height': height,
+					'fps': fps
+				}
+				
+				cameras_info.append(camera_data)
+				cap.release()
+			else:
+				cap.release()
+		# Ripristina il livello di log
+		cv2.setLogLevel(old_log_level)
+		return cameras_info
+	
+	def change_one_camera(self, cap):
+		"""Ritorna informazioni dettagliate su tutte le videocamere disponibili"""
+		cameras = self.scout_cameras()
+		self.release()
+		for cam_info in cameras:
+			print(f"Camera {cam_info['index']}: {cam_info['width']}x{cam_info['height']} @ {cam_info['fps']} FPS")
+		choice = input("\nScegli la videocamera da usare: ")
+
+		while choice.isdigit() is False or int(choice) < 0 or int(choice) >= len(cameras):
+			choice = input("Scelta non valida. Scegli la videocamera da usare: ")
+
+		self.release()
+		index = int(choice)
+		cap = cv2.VideoCapture(index)
+		if cap.isOpened():
+			return index
+		else:
+			print("Impossibile aprire la videocamera scelta. Ritrono alla videocamera predefinita (0).")
+			return -1
+		
+
+	def change_cameras(self):
+		self.release()
+		new_id_l = self.change_one_camera(self.cap_left)
+		new_id_r = self.change_one_camera(self.cap_right)
+		if new_id_l != -1  and new_id_r != -1:
+			self.left_index = new_id_l
+			self.right_index = new_id_r
+			print("Videocamere cambiate")
+		else:
+			print("Errore nel cambio di una videocamera torno alle precedenti")
+			self.cap_left = cv2.VideoCapture(self.left_index )
+			self.cap_right = cv2.VideoCapture(self.right_index)
+
+		self.width , self.height = self.select_dimensions()
+		print(f"W: {self.width} X H: {self.height}")
+
+		self.set_dimensions(self, self.width, self.height)
+		self.wd.change_dimension(self.width , self.height )
+
+		self.thread_left = Thread(target=self._read_left_thread, daemon=True)
+		self.thread_right = Thread(target=self._read_right_thread, daemon=True)
+		
 
 	def __del__(self):
 		"""Distruttore."""
