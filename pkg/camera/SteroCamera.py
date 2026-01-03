@@ -104,6 +104,47 @@ class StereoCamera:
 					self.frame_right = frame
 					self.frame_right_ready = True
 
+	def _change_one_camera(self, cap, exclude_index = None):
+		"""Ritorna informazioni dettagliate su tutte le videocamere disponibili"""
+		cameras = self.scout_cameras()
+		for cam_info in cameras:
+			if cam_info['index'] == exclude_index:
+				continue
+			print(f"Camera {cam_info['index']}: {cam_info['width']}x{cam_info['height']} @ {cam_info['fps']} FPS")
+		choice = input("\nScegli la videocamera da usare: ")
+
+		while choice.isdigit() is False or int(choice) < 0 or int(choice) >= len(cameras) or int(choice) == exclude_index:
+			choice = input("Scelta non valida. Scegli la videocamera da usare: ")
+		index = int(choice)
+		cap = cv2.VideoCapture(index)
+		if cap.isOpened():
+			return index
+		else:
+			print("Impossibile aprire la videocamera scelta. Ritrono alla videocamera predefinita (0).")
+			return -1
+
+	def _restart_threads(self):
+		print("threads chiusi")
+		self.reading = False
+		self.thread_left.join(timeout=1.0)
+		self.thread_right.join(timeout=1.0)
+		
+		print("threads in riavvio")
+		self.lock = Lock()
+		self.frame_left = None
+		self.frame_right = None
+		self.frame_left_ready = False
+		self.frame_right_ready = False
+		
+		# Thread di lettura asincrona (opzionale, per sincronia migliore)
+		self.reading = True
+
+		self.thread_left = Thread(target=self._read_left_thread, daemon=True)
+		self.thread_right = Thread(target=self._read_right_thread, daemon=True)
+		self.thread_left.start()
+		self.thread_right.start()
+		print("threads in riavviati")
+
 	def read(self):
 		"""
 		Legge un frame sincronizzato da entrambe le camere.
@@ -270,49 +311,34 @@ class StereoCamera:
 		cv2.setLogLevel(old_log_level)
 		return cameras_info
 	
-	def change_one_camera(self, cap):
-		"""Ritorna informazioni dettagliate su tutte le videocamere disponibili"""
-		cameras = self.scout_cameras()
-		self.release()
-		for cam_info in cameras:
-			print(f"Camera {cam_info['index']}: {cam_info['width']}x{cam_info['height']} @ {cam_info['fps']} FPS")
-		choice = input("\nScegli la videocamera da usare: ")
 
-		while choice.isdigit() is False or int(choice) < 0 or int(choice) >= len(cameras):
-			choice = input("Scelta non valida. Scegli la videocamera da usare: ")
-
-		self.release()
-		index = int(choice)
-		cap = cv2.VideoCapture(index)
-		if cap.isOpened():
-			return index
-		else:
-			print("Impossibile aprire la videocamera scelta. Ritrono alla videocamera predefinita (0).")
-			return -1
-		
 
 	def change_cameras(self):
 		self.release()
-		new_id_l = self.change_one_camera(self.cap_left)
-		new_id_r = self.change_one_camera(self.cap_right)
+		print("==== LEFT  CAMERA ====")
+		new_id_l = self._change_one_camera(self.cap_left)
+		print("==== RIGTH CAMERA ====")
+		new_id_r = self._change_one_camera(self.cap_right, new_id_l)
 		if new_id_l != -1  and new_id_r != -1:
 			self.left_index = new_id_l
 			self.right_index = new_id_r
-			print("Videocamere cambiate")
+			print("Camere cambiate")
 		else:
 			print("Errore nel cambio di una videocamera torno alle precedenti")
-			self.cap_left = cv2.VideoCapture(self.left_index )
-			self.cap_right = cv2.VideoCapture(self.right_index)
+
+		self.cap_left = cv2.VideoCapture(self.left_index )
+		self.cap_right = cv2.VideoCapture(self.right_index)
 
 		self.width , self.height = self.select_dimensions()
 		print(f"W: {self.width} X H: {self.height}")
 
-		self.set_dimensions(self, self.width, self.height)
-		self.wd.change_dimension(self.width , self.height )
+		self.set_dimensions( self.width, self.height)
+		self.wd.change_dimension(self.width * 2, self.height)
 
-		self.thread_left = Thread(target=self._read_left_thread, daemon=True)
-		self.thread_right = Thread(target=self._read_right_thread, daemon=True)
+
+		self._restart_threads()
 		
+
 
 	def __del__(self):
 		"""Distruttore."""
