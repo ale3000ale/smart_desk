@@ -202,7 +202,8 @@ class HandTracker:
         return True
     
 
-    def estimate_depth_map(self, frame_left, frame_right):
+
+    def estimate_depth_map(self, frame_left, frame_right, p2_base = 32):
         """
         Stima mappa di profondità da due frame stereo (left, right) usando StereoSGBM.
         
@@ -244,7 +245,7 @@ class HandTracker:
         # ========================================================================
         # STEP 3: CONFIGURAZIONE StereoSGBM CON PARAMETRI ROBUSTI
         # ========================================================================
-        window_size = 5                   # Aumentato da 5 → area ricerca 11x11 vs 5x5
+        window_size = 8                   # Aumentato da 5 → area ricerca 11x11 vs 5x5
         min_disp = 0
         num_disp = 64                      # Multiplo di 16 (richiesto da OpenCV)
 
@@ -253,7 +254,7 @@ class HandTracker:
             numDisparities=num_disp,
             blockSize=window_size,         # 11 = finestra matching robusta
             P1=8 * 3 * window_size ** 2,   # Penalità discontinuità piccola
-            P2=32 * 3 * window_size ** 2,  # Penalità discontinuità grande
+            P2= p2_base * 3 * window_size ** 2,  # Penalità discontinuità grande
             disp12MaxDiff=1,               # Controlla left-right consistency
             uniquenessRatio=15,            # 15 (era 10) → scarta match deboli/ambigui
             speckleWindowSize=100,         # Rimuove componenti < 100 pixel

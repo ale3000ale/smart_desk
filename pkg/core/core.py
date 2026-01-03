@@ -17,9 +17,20 @@ import numpy as np
 
 stereo = True
 
+colormaps = {
+        'TURBO': cv2.COLORMAP_TURBO,
+        'JET': cv2.COLORMAP_JET,
+        'HOT': cv2.COLORMAP_HOT,
+        'VIRIDIS': cv2.COLORMAP_VIRIDIS,
+        'MAGMA': cv2.COLORMAP_MAGMA,
+    }
+
 def core():
+	color = cv2.COLORMAP_TURBO
 	wd = Window("Camera Viewer")
-	wd_depth = Window("Depth map")
+
+	wd_depth = Window("Depth map p2 base 32")
+	wd_depth_Color = Window("Color Depth map")
 	
 	if stereo:
 		stereo_camera = StereoCamera()
@@ -27,7 +38,7 @@ def core():
 	else:
 		mono_cameraL = Camera(0)
 		mono_cameraR = Camera(1)
-		wd_lr = Window("Camera L | R", 1080*2, 720)
+		wd_lr = Window("Non Stereo Camera L | R", 1080*2, 720)
 
 	#start ML
 	tracker = HandTracker()
@@ -46,7 +57,7 @@ def core():
 			ret_r,frame_r = mono_cameraR.read()
 
 		if not (ret_l and ret_r):
-			print("Errore nella lettura dei frame")
+			#print("Errore nella lettura dei frame")
 			continue
 
 		# Se hai calibrazione, rettifica
@@ -55,13 +66,16 @@ def core():
 
 		depth_map = tracker.estimate_depth_map(frame_l, frame_r)
 
+
 		tracker.load_hands(frame_l)
 		frame_tracked, hand_pos, is_real_press = tracker.process(frame_l)
-		print("Tracking con LEFT camera")
+
 		tracker.draw_landmark(frame_tracked)
-		#tracker.draw_landmark(frame_l)
-		#tracker.draw_landmark(frame_r)
 		tracker.draw_landmark(depth_map)
+
+		depth_map_uint8 = (depth_map * 255).astype(np.uint8)
+		depth_map_colored = cv2.applyColorMap(depth_map_uint8, color)
+		wd_depth_Color.show_frame(depth_map_colored)
 
 		# Rendering GUI sopra il frame tracciato
 		#gui_frame = gui.render(frame_tracked)
@@ -72,7 +86,7 @@ def core():
 		if not stereo:
 			wd_lr.show_frame(np.hstack([frame_l, frame_r]))
 		wd_depth.show_frame(depth_map)
-
+		
 		# Listener pulsante GUI
 		#if gui.consume_button_press():
 		#	print("Pulsante GUI premuto!")
@@ -91,6 +105,12 @@ def core():
 			tracker.calibrate_touch_plane(frame_r)
 		if key == ord(config.KEY_RESET):
 			tracker.reset()
+
+		if key == ord('1'): color = colormaps['TURBO']    # Miglior scelta
+		if key == ord('2'): color = colormaps['JET']
+		if key == ord('3'): color = colormaps['HOT']
+		if key == ord('4'): color = colormaps['VIRIDIS']
+		if key == ord('5'): color = colormaps['MAGMA']
 
 		
 	
