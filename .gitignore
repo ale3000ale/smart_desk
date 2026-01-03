@@ -21,3 +21,6 @@ Thumbs.db
 structure.txt
 project_code.txt
 calibration_images/
+depth_map.npy
+depth_map.png
+depth_map.csv

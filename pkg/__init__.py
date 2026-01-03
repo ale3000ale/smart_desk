@@ -15,6 +15,7 @@ from .window.Window import Window
 from .core import core 
 from .core import Gui
 from .core import HandTracker
+from .core import utility
 
 
 
@@ -29,8 +30,8 @@ __all__ = [
     'config',
 	# Classi
 	'Camera','StereoCamera', 'Window','Gui',
-	# Funzioni
-	'core'
+	# librerie
+	'core', 'utility'
 ]
 
 __version__ = '1.0.0'

@@ -41,6 +41,8 @@ class HandTracker:
         self.real_press_threshold = PRESS_TRESHOLD
         self.hands = None
 
+    def get_depth_map(self):
+        return self.depth_map
 
 
     def callback(self , result: vision.HandLandmarkerResult, output_image: mp.Image, timestamp_ms: int):

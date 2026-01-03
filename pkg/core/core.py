@@ -10,10 +10,12 @@ from pkg.config import *
 from pkg.core.Gui import Gui
 from pkg.core.HandTracker import HandTracker
 from pkg.camera import SteroCamera
+from pkg.core import utility as ut
 import os
 os.environ["OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS"] = "0"
 import cv2
 import numpy as np
+
 
 stereo = True
 
@@ -71,7 +73,7 @@ def core():
 		frame_tracked, hand_pos, is_real_press = tracker.process(frame_l)
 
 		tracker.draw_landmark(frame_tracked)
-		tracker.draw_landmark(depth_map)
+		#tracker.draw_landmark(depth_map)
 
 		depth_map_uint8 = (depth_map * 255).astype(np.uint8)
 		depth_map_colored = cv2.applyColorMap(depth_map_uint8, color)
@@ -104,6 +106,11 @@ def core():
 		if key == ord(config.KEY_CALIBRATION):
 			tracker.calibrate_touch_plane(frame_r)
 		if key == ord(config.KEY_RESET):
+			tracker.reset()
+		if key == ord('s'):
+			ut.depth_map_to_csv(depth_map, "assets/depth_map.csv")
+			ut.save_depth_map_png(depth_map, "assets/depth_map.png")
+			
 			tracker.reset()
 
 		if key == ord('1'): color = colormaps['TURBO']    # Miglior scelta
