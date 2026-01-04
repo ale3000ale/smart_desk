@@ -66,7 +66,8 @@ def core():
 		if stereo and stereo_camera.stereo_params is not None:
 				frame_l, frame_r = stereo_camera.rectify_frames(frame_l, frame_r) 
 
-		depth_map = tracker.estimate_depth_map(frame_l, frame_r)
+		depth_map = tracker.new_estimate_depth_map(frame_l, frame_r, stereo_camera.stereo_params)
+		#depth_map = tracker.estimate_depth_map(frame_l, frame_r)
 
 
 		tracker.load_hands(frame_l)

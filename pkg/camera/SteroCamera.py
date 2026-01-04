@@ -235,6 +235,17 @@ class StereoCamera:
 				'validRoiL': validRoiL,
 				'validRoiR': validRoiR
 			}
+
+			print(f"\n🔍 DEBUG CALIBRAZIONE")
+			print(f"K_left[0,0] (focal): {K_left[0, 0]:.2f}")
+			print(f"K_right[0,0] (focal): {K_right[0, 0]:.2f}")
+			print(f"R determinante: {np.linalg.det(R):.6f}")
+			print(f"T (traslazione): {T.flatten()}")
+			print(f"T norm (baseline): {np.linalg.norm(T):.2f} mm")
+			print(f"R1:\n{R1}")
+			print(f"R2:\n{R2}")
+			print(f"P1:\n{P1}")
+			print(f"P2:\n{P2}")
 			
 			print(f"Calibrazione stereo caricata da: {calibration_file}")
 			return True
@@ -267,7 +278,7 @@ class StereoCamera:
 
 		frame_left_rect = cv2.remap(frame_left, map_left_x, map_left_y, cv2.INTER_LINEAR)
 		frame_right_rect = cv2.remap(frame_right, map_right_x, map_right_y, cv2.INTER_LINEAR)
-
+		self.test_rectification_quality(frame_left_rect,frame_right_rect)
 		return frame_left_rect, frame_right_rect
 
 	def release(self):
@@ -338,6 +349,50 @@ class StereoCamera:
 
 		self._restart_threads()
 		
+
+	def test_rectification_quality(self, frame_left, frame_right):
+		"""
+		Verifica se le immagini sono rettificate correttamente.
+		Se lo sono, le righe corrispondenti dovrebbero essere identiche.
+		"""
+		
+		# Converti a grigi
+		gray_left = cv2.cvtColor(frame_left, cv2.COLOR_BGR2GRAY) if frame_left.ndim == 3 else frame_left
+		gray_right = cv2.cvtColor(frame_right, cv2.COLOR_BGR2GRAY) if frame_right.ndim == 3 else frame_right
+		
+		h, w = gray_left.shape[:2]
+		
+		# Test su 3 righe diverse
+		test_rows = [h//4, h//2, 3*h//4]
+		correlations = []
+		
+		for row in test_rows:
+			left_row = gray_left[row, :]
+			right_row = gray_right[row, :]
+			
+			# Calcola correlazione
+			correlation = np.corrcoef(left_row, right_row)[0, 1]
+			correlations.append(correlation)
+			
+			print(f"Riga {row}: correlazione = {correlation:.4f}")
+		
+		avg_correlation = np.mean(correlations)
+		
+		print(f"\n🔍 TEST RETTIFICA QUALITÀ")
+		print(f"Correlazione MEDIA: {avg_correlation:.4f}")
+		
+		if avg_correlation > 0.8:
+			print("✅ OTTIMA: Immagini rettificate perfettamente")
+			return True
+		elif avg_correlation > 0.6:
+			print("⚠️  MEDIA: Rettifica OK ma non perfetta")
+			return True
+		elif avg_correlation > 0.4:
+			print("❌ SCARSA: Rettifica problematica")
+			return False
+		else:
+			print("❌❌ CRITICA: Immagini non sono rettificate!")
+			return False
 
 
 	def __del__(self):
