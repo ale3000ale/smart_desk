@@ -33,6 +33,11 @@ KEY_QUIT = 'q'              # Tasto per uscire
 KEY_CHANGE_CAMERA = 'c'     # Tasto per cambiare videocamera
 KEY_CALIBRATION = 't'       # Tasto per calibrare
 KEY_RESET = 'r'             # Tasto per resettare la calibrazione
+KEY_UP		= 2490368
+KEY_DOWN	= 2621440
+KEY_LEFT	= 2555904
+KEY_RIGTH	= 2424832
+KEY_SETTINGS= "s"
 #KEY_SET_720P = 'p'        # Tasto per settare risoluzione 720p
 
 # ============= PERCORSI =============
@@ -48,7 +53,7 @@ __all__ = [
 	'WINDOW_DEFAULT_NAME','WINDOW_DEFAULT_WIDTH', 'WINDOW_DEFAULT_HEIGHT',
 	
 	'KEY_QUIT', 'KEY_CHANGE_CAMERA','KEY_CALIBRATION',
-	'KEY_RESET',
+	'KEY_RESET','KEY_UP','KEY_LEFT','KEY_RIGTH','KEY_DOWN','KEY_SETTINGS',
 	
 	'MIN_HAND_DETECTION_CONFIDENCE',
     'MIN_HAND_PRESENCE_CONFIDENCE','MIN_TRACKING_CONFIDENCE','MAX_HANDS_DETECTIONS',

@@ -103,6 +103,7 @@ def draw_vertical_dict(frame, data_dict, id, start_pos=(20, 40), font_scale=0.6)
 def core():
 
 	setting_idx = 0
+	show_settings = False
 
 	color = cv2.COLORMAP_TURBO
 	wd = Window("Camera Viewer")
@@ -159,7 +160,8 @@ def core():
 		depth_map_colored = cv2.applyColorMap(depth_map_uint8, color)
 		wd_depth_Color.show_frame(depth_map_colored)
 
-		frame_tracked = draw_vertical_dict(frame_tracked,stereoSGBM_params, stereoSGBM_params_steps[setting_idx][0])
+		if show_settings:
+			frame_tracked = draw_vertical_dict(frame_tracked,stereoSGBM_params, stereoSGBM_params_steps[setting_idx][0])
 		
 
 		# Rendering GUI sopra il frame tracciato
@@ -180,17 +182,17 @@ def core():
 		key = cv2.waitKeyEx(1) 
 		if key != -1 :
 			print(f"Hai premuto il tasto con codice: {key}")
-		if key == ord(config.KEY_QUIT):
+		if key == ord(KEY_QUIT):
 			break
-		if key == ord(config.KEY_CHANGE_CAMERA):
+		if key == ord(KEY_CHANGE_CAMERA):
 			if  stereo:
 				stereo_camera.change_cameras()
 			else:
 				mono_cameraL.change_camera()
 				mono_cameraR.change_camera()
-		if key == ord(config.KEY_CALIBRATION):
+		if key == ord(KEY_CALIBRATION):
 			tracker.calibrate_touch_plane(frame_r)
-		if key == ord(config.KEY_RESET):
+		if key == ord(KEY_RESET):
 			tracker.reset()
 		if key == ord('s'):
 			ut.depth_map_to_csv(depth_map, "assets/depth_map.csv")
@@ -204,25 +206,27 @@ def core():
 		if key == ord('4'): color = colormaps['VIRIDIS']
 		if key == ord('5'): color = colormaps['MAGMA']
 
-		if key == 2621440:  # Freccia GIU
-			setting_idx += 1
-			if setting_idx == stereoSGBM_params_steps.__len__():
-				setting_idx = 0
-			print("Hai premuto SU")
+		if key == ord(KEY_SETTINGS): show_settings = not show_settings
+		if show_settings:
+			if key == KEY_DOWN: 
+				setting_idx += 1
+				if setting_idx == stereoSGBM_params_steps.__len__():
+					setting_idx = 0
+				print("Hai premuto SU")
 
-		if key == 2490368:  # Freccia SU
-			setting_idx -= 1
-			if setting_idx == 0:
-				setting_idx = stereoSGBM_params_steps.__len__() - 1
-			print("Hai premuto GIÙ")
-			
-		if key == 2555904:  # Freccia SINISTRA
-			add_to_param(stereoSGBM_params_steps[setting_idx])
-			print("Hai premuto SINISTRA")
-			
-		if key == 2424832:  # Freccia DESTRA
-			sub_to_param(stereoSGBM_params_steps[setting_idx])
-			print("Hai premuto DESTRA")
+			if key == KEY_UP:  
+				setting_idx -= 1
+				if setting_idx == -1:
+					setting_idx = stereoSGBM_params_steps.__len__() - 1
+				print("Hai premuto GIÙ")
+				
+			if key == KEY_LEFT: 
+				add_to_param(stereoSGBM_params_steps[setting_idx])
+				print("Hai premuto SINISTRA")
+				
+			if key == KEY_RIGTH:  
+				sub_to_param(stereoSGBM_params_steps[setting_idx])
+				print("Hai premuto DESTRA")
 		
 		
 	
