@@ -205,7 +205,7 @@ class HandTracker:
         return True
     
 
-    def new_estimate_depth_map(self, frame_left, frame_right, stereo_params = None , verbose=True):
+    def new_estimate_depth_map(self, frame_left, frame_right, stereoSGBM_params = None ,stereo_params = None , verbose=True):
         """
         Stima depth map. Rettifica INTERNAMENTE se necessario.
         """
@@ -238,22 +238,23 @@ class HandTracker:
         # Blur
         #gray_left = cv2.GaussianBlur(gray_left, (5, 5), 0)
         #gray_right = cv2.GaussianBlur(gray_right, (5, 5), 0)
+
         
-        window_size = 5
-        min_disp = 16
-        nDispFactor = 14
+        window_size = stereoSGBM_params['blockSize']
+        min_disp = stereoSGBM_params['minDisparity']
+        nDispFactor = stereoSGBM_params['numDisparities']
         num_disp = 16 * nDispFactor - min_disp
         # STEREO MATCHING
         stereo = cv2.StereoSGBM_create(
             minDisparity= min_disp,
             numDisparities=num_disp,
             blockSize=window_size,
-            P1=8 * 1 * window_size ** 2,
-            P2=16 * 8 * 1 * window_size ** 2,
-            disp12MaxDiff=1,
-            uniquenessRatio=10,
-            speckleWindowSize=0,
-            speckleRange=2,
+            P1=stereoSGBM_params['P1'] * 1 * window_size ** 2,
+            P2=stereoSGBM_params['P2'] * 8 * 1 * window_size ** 2,
+            disp12MaxDiff=stereoSGBM_params['disp12MaxDiff'],
+            uniquenessRatio=stereoSGBM_params['uniquenessRatio'],
+            speckleWindowSize=stereoSGBM_params['speckleWindowSize'],
+            speckleRange=stereoSGBM_params['speckleRange'],
             mode=cv2.STEREO_SGBM_MODE_SGBM_3WAY
         )
         

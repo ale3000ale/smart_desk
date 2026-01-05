@@ -257,7 +257,7 @@ class StereoCamera:
 			print(f"Errore nel caricamento calibrazione: {e}")
 			return False
 
-	def rectify_frames(self, frame_left, frame_right):
+	def rectify_frames(self, frame_left, frame_right, verbose = False):
 		"""
 		Applica la rettifica stereo ai frame.
 		
@@ -278,7 +278,8 @@ class StereoCamera:
 
 		frame_left_rect = cv2.remap(frame_left, map_left_x, map_left_y, cv2.INTER_LINEAR)
 		frame_right_rect = cv2.remap(frame_right, map_right_x, map_right_y, cv2.INTER_LINEAR)
-		self.test_rectification_quality(frame_left_rect,frame_right_rect)
+		if verbose:
+			self.test_rectification_quality(frame_left_rect,frame_right_rect)
 		return frame_left_rect, frame_right_rect
 
 	def release(self):

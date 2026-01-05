@@ -11,6 +11,7 @@ from pkg.core.Gui import Gui
 from pkg.core.HandTracker import HandTracker
 from pkg.camera import SteroCamera
 from pkg.core import utility as ut
+
 import os
 os.environ["OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS"] = "0"
 import cv2
@@ -20,19 +21,95 @@ import numpy as np
 stereo = True
 
 colormaps = {
-        'TURBO': cv2.COLORMAP_TURBO,
-        'JET': cv2.COLORMAP_JET,
-        'HOT': cv2.COLORMAP_HOT,
-        'VIRIDIS': cv2.COLORMAP_VIRIDIS,
-        'MAGMA': cv2.COLORMAP_MAGMA,
-    }
+		'TURBO': cv2.COLORMAP_TURBO,
+		'JET': cv2.COLORMAP_JET,
+		'HOT': cv2.COLORMAP_HOT,
+		'VIRIDIS': cv2.COLORMAP_VIRIDIS,
+		'MAGMA': cv2.COLORMAP_MAGMA,
+	}
+
+
+stereoSGBM_params_steps = [['minDisparity', 1],
+		['numDisparities', 1],
+		['blockSize', 1],
+		['P1', 8],
+		['P2', 8],
+		['disp12MaxDiff', 1],
+		['uniquenessRatio', 1],
+		['speckleWindowSize', 5],
+		['speckleRange', 1]
+		]
+
+stereoSGBM_params =  {
+		'minDisparity': 16,
+		'numDisparities': 14,
+		'blockSize': 5,
+		'P1': 8,
+		'P2': 16,
+		'disp12MaxDiff': 1,
+		'uniquenessRatio': 10,
+		'speckleWindowSize': 0,
+		'speckleRange': 2
+	}
+
+def add_to_param(key):
+	stereoSGBM_params[key[0]] += key[1]
+
+def sub_to_param(key):
+	stereoSGBM_params[key[0]] -= key[1]
+
+
+def draw_vertical_dict(frame, data_dict, id, start_pos=(20, 40), font_scale=0.6):
+	"""
+	Visualizza un dizionario in verticale sul frame.
+	
+	Args:
+		frame: Il frame/immagine cv2 su cui disegnare.
+		data_dict: Il dizionario contenente i valori da mostrare.
+		start_pos: Tupla (x, y) per la posizione della prima riga.
+		font_scale: Dimensione del font.
+		color: Colore del testo in BGR (es. (0, 255, 0) per verde).
+	"""
+	x, y = start_pos
+	line_height = int(30 * font_scale * 1.5)  # Calcola interlinea in base al font
+	
+	# Impostazioni font
+	font = cv2.FONT_HERSHEY_SIMPLEX
+	thickness = 2
+
+	for key, value in data_dict.items():
+		# Formatta il testo: Chiave: Valore
+		# Se il valore è float, lo tronca a 2 decimali per pulizia
+		if isinstance(value, float):
+			text = f"{key}: {value:.2f}"
+		else:
+			text = f"{key}: {value}"
+			
+		# Opzionale: Aggiungi un contorno nero per migliorare la leggibilità
+		cv2.putText(frame, text, (x, y), font, font_scale, (0, 0, 0), thickness + 2, cv2.LINE_AA)
+		
+		# Disegna il testo vero e proprio
+		if id == key:
+			cv2.putText(frame, text, (x, y), font, font_scale, (0, 255, 0), thickness, cv2.LINE_AA)
+		else:
+			cv2.putText(frame, text, (x, y), font, font_scale, (0, 0, 255), thickness, cv2.LINE_AA)
+		# Incrementa la Y per la riga successiva
+		y += line_height
+	return frame
+
+
+
 
 def core():
+
+	setting_idx = 0
+
 	color = cv2.COLORMAP_TURBO
 	wd = Window("Camera Viewer")
 
 	wd_depth = Window("Depth map p2 base 32")
 	wd_depth_Color = Window("Color Depth map")
+
 	
 	if stereo:
 		stereo_camera = StereoCamera()
@@ -40,7 +117,7 @@ def core():
 	else:
 		mono_cameraL = Camera(0)
 		mono_cameraR = Camera(1)
-		wd_lr = Window("Non Stereo Camera L | R", 1080*2, 720)
+		wd_lr = Window("Non Stereo Camera L | R", 1080*2, 720) 
 
 	#start ML
 	tracker = HandTracker()
@@ -66,7 +143,9 @@ def core():
 		if stereo and stereo_camera.stereo_params is not None:
 				frame_l, frame_r = stereo_camera.rectify_frames(frame_l, frame_r) 
 
-		depth_map = tracker.new_estimate_depth_map(frame_l, frame_r, stereo_camera.stereo_params)
+		depth_map = tracker.new_estimate_depth_map(
+			frame_l, frame_r,stereoSGBM_params, stereo_camera.stereo_params, False)
+		
 		#depth_map = tracker.estimate_depth_map(frame_l, frame_r)
 
 
@@ -79,6 +158,9 @@ def core():
 		depth_map_uint8 = (depth_map * 255).astype(np.uint8)
 		depth_map_colored = cv2.applyColorMap(depth_map_uint8, color)
 		wd_depth_Color.show_frame(depth_map_colored)
+
+		frame_tracked = draw_vertical_dict(frame_tracked,stereoSGBM_params, stereoSGBM_params_steps[setting_idx][0])
+		
 
 		# Rendering GUI sopra il frame tracciato
 		#gui_frame = gui.render(frame_tracked)
@@ -95,7 +177,9 @@ def core():
 		#	print("Pulsante GUI premuto!")
 
 		# Tasti controllo
-		key = cv2.waitKey(1) & 0xFF
+		key = cv2.waitKeyEx(1) 
+		if key != -1 :
+			print(f"Hai premuto il tasto con codice: {key}")
 		if key == ord(config.KEY_QUIT):
 			break
 		if key == ord(config.KEY_CHANGE_CAMERA):
@@ -120,6 +204,26 @@ def core():
 		if key == ord('4'): color = colormaps['VIRIDIS']
 		if key == ord('5'): color = colormaps['MAGMA']
 
+		if key == 2621440:  # Freccia GIU
+			setting_idx += 1
+			if setting_idx == stereoSGBM_params_steps.__len__():
+				setting_idx = 0
+			print("Hai premuto SU")
+
+		if key == 2490368:  # Freccia SU
+			setting_idx -= 1
+			if setting_idx == 0:
+				setting_idx = stereoSGBM_params_steps.__len__() - 1
+			print("Hai premuto GIÙ")
+			
+		if key == 2555904:  # Freccia SINISTRA
+			add_to_param(stereoSGBM_params_steps[setting_idx])
+			print("Hai premuto SINISTRA")
+			
+		if key == 2424832:  # Freccia DESTRA
+			sub_to_param(stereoSGBM_params_steps[setting_idx])
+			print("Hai premuto DESTRA")
+		
 		
 	
 	stereo_camera.release()
