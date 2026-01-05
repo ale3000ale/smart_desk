@@ -243,19 +243,20 @@ class HandTracker:
         window_size = stereoSGBM_params['blockSize']
         min_disp = stereoSGBM_params['minDisparity']
         nDispFactor = stereoSGBM_params['numDisparities']
-        num_disp = 16 * nDispFactor - min_disp
+        num_disp =  16 * nDispFactor 
+        num_disp = num_disp if num_disp != 0 else 16
         # STEREO MATCHING
         stereo = cv2.StereoSGBM_create(
             minDisparity= min_disp,
             numDisparities=num_disp,
             blockSize=window_size,
-            P1=stereoSGBM_params['P1'] * 1 * window_size ** 2,
-            P2=stereoSGBM_params['P2'] * 8 * 1 * window_size ** 2,
+            P1=8 *stereoSGBM_params['P1'] * window_size ** 2,
+            P2=32 * stereoSGBM_params['P2']  * window_size ** 2,
             disp12MaxDiff=stereoSGBM_params['disp12MaxDiff'],
             uniquenessRatio=stereoSGBM_params['uniquenessRatio'],
             speckleWindowSize=stereoSGBM_params['speckleWindowSize'],
             speckleRange=stereoSGBM_params['speckleRange'],
-            mode=cv2.STEREO_SGBM_MODE_SGBM_3WAY
+            mode=cv2.STEREO_SGBM_MODE_HH
         )
         
         disparity_raw = stereo.compute(gray_left, gray_right)

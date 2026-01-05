@@ -62,3 +62,8 @@ Ho optato per la 3 ma ora, dopo giorni di tentativi, mi accorco che con Midas li
 
 ![MidasPrima](assets/4readme/pre.png)
 ![MidasDopo](assets/4readme/post.png)
+
+### 5/01/26
+Finalmente ho una depth map decente, sto usando il parallasse con due fotocamere identiche allineate (40€ totale), vedo dei risultati accettabili penso, devo sistemare un po la calibrazione ed il settaggio é "forzato" o meglio il settaggio della funzione di Disparitá é ad hoc per la mia situazione, punto a farne una versione automatizzata in futuro e poi regolabile manualemtne. Ora devo provare a capire bene la profonditá e testare se funziona il riconoscimento del tocco e la calibrazione del piano, in fine cercheró di fare la calibrazione della neo "Stereo Camera" non piú con foto ma con un video .
+![StereoDepthMap](assets/4readme/StereoDepthMap.png)
+qui si vedono parecchi dettagli, anche il taglierino vede bene la confomrazione dei solchi, anche le monete si vedono bene esi distinguono le dita nelal amno chiusa.

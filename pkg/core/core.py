@@ -32,24 +32,24 @@ colormaps = {
 stereoSGBM_params_steps = [['minDisparity', 1],
 		['numDisparities', 1],
 		['blockSize', 1],
-		['P1', 8],
-		['P2', 8],
+		['P1', 1],
+		['P2', 1],
 		['disp12MaxDiff', 1],
 		['uniquenessRatio', 1],
-		['speckleWindowSize', 5],
+		['speckleWindowSize', 10],
 		['speckleRange', 1]
 		]
 
 stereoSGBM_params =  {
-		'minDisparity': 16,
-		'numDisparities': 14,
-		'blockSize': 5,
-		'P1': 8,
-		'P2': 16,
+		'minDisparity': 94,
+		'numDisparities': 2,
+		'blockSize':1,
+		'P1': 1,
+		'P2': 3,
 		'disp12MaxDiff': 1,
-		'uniquenessRatio': 10,
-		'speckleWindowSize': 0,
-		'speckleRange': 2
+		'uniquenessRatio': 3,
+		'speckleWindowSize': 10,
+		'speckleRange': 5
 	}
 
 def add_to_param(key):
