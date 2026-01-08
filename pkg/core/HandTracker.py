@@ -85,6 +85,7 @@ class HandTracker:
             z_combined = MP_Z_WEIGTH * tip_index.z + MIDAS_Z_WEIGTH * z_depth
             
             hand_pos = (x_px, y_px)
+            #print(f"Cm puntati {self.depth_map[x_px,y_px]}")
 
             # Calcola la posizione della mano rispetto al piano di tocco
             if self.touch_plane.__len__() > 0:
@@ -211,9 +212,7 @@ class HandTracker:
         """
        
         
-        BASELINE_MM = 90.0
-        MIN_Z = 50.0
-        MAX_Z = 5000.0
+
         
         # INPUT CHECK
         if frame_left is None or frame_right is None:
@@ -232,12 +231,12 @@ class HandTracker:
         
         # CLAHE
         clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-        gray_left = clahe.apply(gray_left)
+        #gray_left = clahe.apply(gray_left)
         #gray_right = clahe.apply(gray_right)
         
         # Blur
-        #gray_left = cv2.GaussianBlur(gray_left, (5, 5), 0)
-        #gray_right = cv2.GaussianBlur(gray_right, (5, 5), 0)
+        #gray_left = cv2.GaussianBlur(gray_left, (3, 3), 0)
+        #gray_right = cv2.GaussianBlur(gray_right, (3, 3), 0)
 
         
         window_size = stereoSGBM_params['blockSize']
@@ -261,100 +260,69 @@ class HandTracker:
         
         disparity_raw = stereo.compute(gray_left, gray_right)
         disparity_map = disparity_raw.astype(np.float32) / 16.0
-        disparity_map = (disparity_map - min_disp) / num_disp
+        #rimuovere normalizzazione
+        #disparity_map = (disparity_map - min_disp) / num_disp
 
 
-        return disparity_map
 
-        # Post-processing: rimuovere artefatti
-        #kernel = np.ones((5, 5), np.uint8)
-        #disparity_filtered = cv2.morphologyEx(disparity_map, cv2.MORPH_OPEN, kernel)
 
-        #return disparity_filtered 
-        '''baseline = 0.09  # Distanza tra fotocamere in metri
-        focal_length = 797  # Lunghezza focale in pixel
+        #return disparity_map
 
-        # Convertire disparità a profondità
-        # Evitare divisione per zero
-        depth = np.zeros_like(disparity_map, dtype=np.float32)
-        mask = disparity_map > 0
-
-        with np.errstate(divide='ignore', invalid='ignore'):
-            depth[mask] = (baseline * focal_length * 100) / disparity_map[mask]  # in cm
             
-        # Rimuovere infiniti e valori non realistici
-        depth[~np.isfinite(depth)] = 0
-         # Filtrare profondità > 10 metri
-        return depth'''
-        
-         
-
-        # 🔴 INTELLIGENTE POST-PROCESSING
-        # Passo 1: Crea maschera dei pixel validi (prima dei filtri)
-        valid_mask_original = disparity_map > 0
-        
-        # Passo 2: Riempimento temporaneo per i filtri
-        disparity_filled = disparity_map.copy()
-        if np.any(valid_mask_original):
-            mean_val = disparity_map[valid_mask_original].mean()
-            disparity_filled[~valid_mask_original] = mean_val
-        
-        # Passo 3: Bilateral filter (smoothizza senza perdere spigoli)
-        disparity_filtered = cv2.bilateralFilter(
-            disparity_filled.astype(np.float32), 
-            9, 75, 75
-        )
-        
-        # Passo 4: Morphological closing (riempie piccoli buchi)
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-        valid_mask_uint8 = (valid_mask_original * 255).astype(np.uint8)
-        valid_mask_closed = cv2.morphologyEx(valid_mask_uint8, cv2.MORPH_CLOSE, kernel)
-        valid_mask = valid_mask_closed > 0
-        
-        # Passo 5: Median blur finale (rimuove outlier)
-        disparity_filtered = cv2.medianBlur(disparity_filtered, 5)
+        # PARAMETRI CALIBRAZIONE
+        BASELINE_MM = 100.0  # Distanza tra telecamere in mm
+        FOCAL_LENGTH_PX = 797.0  # Lunghezza focale in pixel (dalla calibrazione)
+        MIN_Z = 50.0  # mm
+        MAX_Z = 1000.0  # mm
     
-        # FOCAL LENGTH (dalla calibrazione!)
-        focal_length = 797.0  # Default dalla tua calibrazione
-        if hasattr(self, 'stereo_params') and stereo_params:
-            if 'K_left' in stereo_params:
-                focal_length = float(stereo_params['K_left'][0, 0])
+        # CALCOLO PROFONDITA' (Z) IN MM
+        # Formula: Z = (baseline * focal_length) / disparity
+        depth_map_mm = np.zeros((h, w), dtype=np.float32)
         
-        # DEBUG
-        if verbose:
-            valid = np.count_nonzero(disparity_map > 0)
-            print(f"\n=== DEPTH MAP DEBUG ===")
-            print(f"Focal Length usata: {focal_length:.1f} px")
-            print(f"Pixel validi: {(valid/(h*w)*100):.2f}%")
-            if valid > 0:
-                print(f"Disparità: {disparity_map[disparity_map>0].min():.1f} - {disparity_map.max():.1f} px")
+        # Crea maschera per disparità valida
+        mask = disparity_map > 0.5  # Evita divisione per zero
         
-        # CALCOLO PROFONDITÀ
-        mask = disparity_map > 0.5
-        depth_map = np.zeros((h, w), dtype=np.float32)
+        # Applica formula stereo
+        depth_map_mm[mask] = (BASELINE_MM * FOCAL_LENGTH_PX) / disparity_map[mask]
         
-        if np.any(mask):
-            safe_disp = disparity_map[mask].copy()
-            safe_disp[safe_disp < 0.1] = 0.1
-            depth_map[mask] = (BASELINE_MM * focal_length) / safe_disp
+        # Clipping per rimuovere valori non realistici
+        depth_map_mm[mask] = np.clip(depth_map_mm[mask], MIN_Z, MAX_Z)
         
-        # CLIPPING
-        depth_map = np.clip(depth_map, MIN_Z, MAX_Z)
+        # Imposta pixel non validi a valore di fallback (e.g., distanza massima)
+        depth_map_mm[~mask] = MAX_Z
         
-        # NORMALIZZAZIONE
-        depth_map_norm = np.zeros((h, w), dtype=np.float32)
-        if np.any(mask):
-            depth_map_norm[mask] = 1.0 - (depth_map[mask] - MIN_Z) / (MAX_Z - MIN_Z)
-        depth_map_norm[~mask] = 0.5
+        # CONVERTI IN CM (dividi per 10)
+        depth_map_cm = depth_map_mm / 10.0
+        
         
         if verbose:
-            z_valid = depth_map[mask]
-            if len(z_valid) > 0:
-                print(f"Z range: {z_valid.min():.0f} - {z_valid.max():.0f} mm")
-            print(f"=======================\n")
+            valid_pixels = np.count_nonzero(mask)
+            print(f"[DEBUG DEPTH] Pixel validi: {valid_pixels}/{h*w} ({100*valid_pixels/(h*w):.1f}%)")
+            if valid_pixels > 0:
+                z_min = depth_map_cm[mask].min()
+                z_max = depth_map_cm[mask].max()
+                z_mean = depth_map_cm[mask].mean()
+                print(f"[DEBUG DEPTH] Range Z: {z_min:.1f} - {z_max:.1f} cm (media: {z_mean:.1f} cm)")
         
-        self.depth_map = depth_map_norm.reshape(h, w)
-        return self.depth_map
+        alid_pixels = np.count_nonzero(mask)
+        print(f"[DEBUG] Pixel validi: {valid_pixels}/{h*w}")
+        if valid_pixels > 0:
+            z_min = depth_map_cm[mask].min()
+            z_max = depth_map_cm[mask].max()
+            z_mean = depth_map_cm[mask].mean()
+            print(f"[DEBUG] Range: {z_min:.1f} - {z_max:.1f} cm (media: {z_mean:.1f} cm)")
+    
+
+        # Normalizza tra 0 e 1 rispetto al range [MIN_Z, MAX_Z]
+        depth_map_normalized = (depth_map_cm - MIN_Z/10.0) / (MAX_Z/10.0 - MIN_Z/10.0)
+        depth_map_normalized = np.clip(depth_map_normalized, 0.0, 1.0)
+        
+        if verbose:
+            print(f"[DEBUG] Output NORMALIZZATO 0-1")
+        
+        return depth_map_normalized
+    
+        return depth_map_cm
 
     
 

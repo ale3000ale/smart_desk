@@ -145,7 +145,7 @@ def core():
 				frame_l, frame_r = stereo_camera.rectify_frames(frame_l, frame_r) 
 
 		depth_map = tracker.new_estimate_depth_map(
-			frame_l, frame_r,stereoSGBM_params, stereo_camera.stereo_params, False)
+			frame_l, frame_r,stereoSGBM_params, stereo_camera.stereo_params, True)
 		
 		#depth_map = tracker.estimate_depth_map(frame_l, frame_r)
 
